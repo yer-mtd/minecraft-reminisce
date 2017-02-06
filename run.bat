@@ -1,1 +1,1 @@
-"C:\Program Files\LOVE\love.exe" "D:/reminisce/" --console
+"C:\Program Files\LOVE\love.exe" "D:/reminisce/minecraft-reminisce/" --console

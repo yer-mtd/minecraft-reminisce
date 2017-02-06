@@ -7,7 +7,7 @@ local rel_x = (math.floor(x)%16)
 local rel_y = math.floor(y)
 if rel_y < 63 or rel_y > 1 then block[target_chunk][rel_x][rel_y] = value end
 
-print(target_chunk,rel_x,rel_y)
+--print(target_chunk,rel_x,rel_y)
 
 end
 
@@ -24,19 +24,25 @@ if rel_y < 63 or rel_y > 1 then return block[target_chunk][rel_x][rel_y] end
 
 end
 
+function block_getScreenCoordinates(f_chunk,f_x,f_y)
+
+return f_x*__scale+(f_chunk*16*__scale) ,__origin-(f_y-1)*__scale
+
+end
+
+
 function global_saveChunk(num)
 
 	
 
 end
 
---MONSTER CLASS----------------------------------------------------------------------------------------------------------------
+--PLAYER CLASS-----------------------------------------------------------------------------------------------------------------
 
 player = {ypos = 64, xpos = 32, vspeed = 0, hspeed = 0, health = 20, ground = 0}
 function player.tick(this)
 
-if block_getBlockId(this.xpos,this.ypos-0.01) == 1 then ground = 1 end
-if block_getBlockId(this.xpos,this.ypos-0.01) ~= 0 then this.vspeed = 0 this.ground = 0 end 
+if block_getBlockId(this.xpos,this.ypos-0.01) > 0 then vspeed = 0 ground = 1 end
 
 if this.ground == 0 then this.vspeed = this.vspeed - 0.01 end
 
@@ -48,9 +54,13 @@ this.ypos = this.ypos + this.vspeed
 end 
 function player.render(this)
 
-	love.graphics.rectangle("fill",this.xpos*__scale,__origin-this.ypos*__scale,5,5)
+	love.graphics.rectangle("fill",400-8,300-16,16,32)
 	love.graphics.print(this.ground .. " " .. this.xpos .. " " .. this.ypos,this.xpos*__scale,__origin-(this.ypos*__scale-32))
-	love.graphics.translate(this.xpos * __scale,this.ypos * __scale)
+	render_y = __origin-(this.ypos)*__scale-300
+	render_x = (this.xpos)*__scale-400
+	love.graphics.rectangle("fill",this.xpos-render_x,-this.ypos-render_y,16,16)
+	
+	
 end 
 
 entity = {}
@@ -66,6 +76,8 @@ function love.load()
 	terrain = love.graphics.newImage("terrain.png")
 	terrain:setFilter("nearest")
 	qq = 0
+	render_x = 0
+	render_y = 0
 	texture = {}
 	for i=0,256,16 do
 		for ii=0,256,16 do
@@ -74,7 +86,7 @@ function love.load()
 		end
 	end
 	--We're gonna have 16x64 chunks for now. Let's get generating. Raising.
-	__scale = 8
+	__scale = 32
 	__origin = 63 * __scale
 	block = {}
 	for chunk = 0,4,1 do 
@@ -115,12 +127,15 @@ function love.draw()
 		for x = 0,15,1 do
 			for y = 0,63,1 do
 				if block[chunk][x][y] > 0 then 
-				love.graphics.draw(terrain,texture[block[chunk][x][y]],x*__scale+chunk*16*__scale,__origin-(y-1)*__scale,0)
+				--print(chunk, x ,y)
+				i_x, i_y = block_getScreenCoordinates(chunk or 0,x or 0,y or 0)
+				love.graphics.draw(terrain,texture[block[chunk][x][y]],i_x-render_x,i_y-render_y,0,__scale/16,__scale/16)
 				end
 			end 
 		end
 	end
 	love.graphics.print(love.timer.getFPS())
+	love.graphics.print({render_x .. " " .. render_y},32,32)
 	for id,obj in pairs(entity) do
 		obj:render()
 	end	
@@ -136,7 +151,7 @@ end
 
 function love.update(dt)
 	if dt < 1/30 then
-		love.timer.sleep(1/30 - dt)
+		love.timer.sleep(1/60 - dt)
 	end
 	for id,obj in pairs(entity) do
 		obj:tick()
