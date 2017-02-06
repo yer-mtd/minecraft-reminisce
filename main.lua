@@ -74,8 +74,8 @@ function love.load()
 		end
 	end
 	--We're gonna have 16x64 chunks for now. Let's get generating. Raising.
-	__scale = 3
-	__origin = 64 * __scale
+	__scale = 8
+	__origin = 63 * __scale
 	block = {}
 	for chunk = 0,4,1 do 
 		block[chunk] = {}
@@ -113,12 +113,9 @@ function love.draw()
 	for chunk = 0,4,1 do 
 		love.graphics.line((chunk+1)*__scale*16,0,chunk*16*__scale,64)
 		for x = 0,15,1 do
-			for y = 63,0,1 do
+			for y = 0,63,1 do
 				if block[chunk][x][y] > 0 then 
-				--local image_x = block[chunk][x][y]%16
-				--local image_y = math.floor(block[chunk][x][y]/16)
-				love.graphics.draw(terrain,texture[block[chunk][x][y]],x*__scale+chunk*16*__scale,y*__scale,0,__scale/16,__scale/16)
-				
+				love.graphics.draw(terrain,texture[block[chunk][x][y]],x*__scale+chunk*16*__scale,__origin-(y-1)*__scale,0)
 				end
 			end 
 		end
