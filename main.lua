@@ -11,9 +11,9 @@ if rel_y < 63 or rel_y > 1 then block[target_chunk][rel_x][rel_y] = value end
 
 end
 
-function block_getBlockId(x,y,value)
+function block_getBlockId(x,y)
 
-math.randomseed(1)
+
 
 local target_chunk = math.floor(x/16)
 local rel_x = (math.floor(x)%16)
@@ -30,6 +30,18 @@ return f_x*__scale+(f_chunk*16*__scale) ,__origin-(f_y-1)*__scale
 
 end
 
+block_solidLookupTable = {1,2,3,4,5,6,7,8}
+
+function block_isSolid(x,y)
+
+local id = block_getBlockId(x,y)
+for key,value in pairs(block_solidLookupTable) do
+	if id == value then return true end
+end
+
+
+end
+
 
 function global_saveChunk(num)
 
@@ -39,13 +51,19 @@ end
 
 --PLAYER CLASS-----------------------------------------------------------------------------------------------------------------
 
-player = {ypos = 64, xpos = 32, vspeed = 0, hspeed = 0, health = 20, ground = 0}
+player = {ypos = 64, xpos = 32, vspeed = -0.1, hspeed = 0, health = 20, ground = 0}
 function player.tick(this)
 
-if block_getBlockId(this.xpos,this.ypos-0.01) > 0 then vspeed = 0 ground = 1 end
+if block_isSolid(this.xpos,this.ypos-0.01) then 
+--Vertical collision
+if this.vspeed < 0 then this.ypos = math.ceil(this.ypos) this.ground = 1 end
+if this.vspeed > 0 then this.ypos = math.ceil(this.ypos-2) this.ground = 1 this.vspeed = 0 end
+
+
+ end
 
 if this.ground == 0 then this.vspeed = this.vspeed - 0.01 end
-
+if math.abs(this.vspeed) > 1 then this.vspeed = 0 end
 
 this.xpos = this.xpos + this.hspeed
 this.ypos = this.ypos + this.vspeed
@@ -55,10 +73,10 @@ end
 function player.render(this)
 
 	love.graphics.rectangle("fill",400-8,300-16,16,32)
-	love.graphics.print(this.ground .. " " .. this.xpos .. " " .. this.ypos,this.xpos*__scale,__origin-(this.ypos*__scale-32))
+	--love.graphics.print(this.ground .. " " .. this.xpos .. " " .. this.ypos,this.xpos*__scale+render_x,__origin-(this.ypos*__scale-32)+render_y)
 	render_y = __origin-(this.ypos)*__scale-300
 	render_x = (this.xpos)*__scale-400
-	love.graphics.rectangle("fill",this.xpos-render_x,-this.ypos-render_y,16,16)
+	love.graphics.rectangle("fill",this.xpos-render_x,-this.ypos-render_y,__scale,__scale)
 	
 	
 end 
@@ -69,9 +87,62 @@ setmetatable(entity[0],{__index = player})
 
 -------------------------------------------------------------------------------------------------------------------------------
 
+function __generate()
+pseudoseed = os.time()%99999
+--pseudoseed = 0
+--We're gonna have 16x64 chunks for now. Let's get generating. Raising.
+for chunk = 0,4,1 do 
+		block[chunk] = {}
+		for x = 0,15,1 do
+			block[chunk][x] = {}
+			for y = 0,63,1 do
+				block[chunk][x][y] = 0
+			end 
+		end
+	end
+	for x = 0,5*16-1,1 do
+		n = love.math.noise(pseudoseed,(x)/300)*10
+		m = love.math.noise(pseudoseed,(x)/110)*20
+		q = love.math.noise(pseudoseed,(x)/10)*2
+		block_setBlockId(x,math.abs(n+q)+m+32,3)
+		print(n+26)
+	end
+	--Soiling.
+	for chunk = 0,4,1 do 
+		for x = 0,15,1 do
+			for y = 0,63,1 do
+				if block[chunk][x][y] == 3 then 
+				m = math.ceil(math.abs(love.math.noise(x))*8)
+					for n = y-1,y-m,-1 do
+						block[chunk][x][n] = 2
+					end
+					for n = y-m,0,-1 do
+						block[chunk][x][n] = 1
+					end 
+				end
+			end 
+		end
+	end
+	--Carving.
+	for chunk = 0,4,1 do
+		for x=0,15,1 do
+			for y=0,63,1 do
+				cave = love.math.noise(((y+0.9)/120)*12,((x+chunk*16)/120)*12,pseudoseed)
+				--print(cave)
+				if cave > 0.6 then block[chunk][x][y] = 0 end 
+				--cave = love.math.noise(((y+0.9)/180)*10,((x+chunk*16)/180)*10,pseudoseed)
+				--print(cave)
+				--if cave > 0.8 then block[chunk][x][y] = 0 end 
+			end 
+		end
+	end
+
+
+end
 
 --LOVE FUNCTIONS---------------------------------------------------------------------------------------------------------------
 function love.load()
+	pseudoseed = os.time()%9999
 	--Load terrain png and shear it into quads
 	terrain = love.graphics.newImage("terrain.png")
 	terrain:setFilter("nearest")
@@ -85,45 +156,15 @@ function love.load()
 			qq = qq + 1
 		end
 	end
-	--We're gonna have 16x64 chunks for now. Let's get generating. Raising.
 	__scale = 32
 	__origin = 63 * __scale
 	block = {}
-	for chunk = 0,4,1 do 
-		block[chunk] = {}
-		for x = 0,15,1 do
-			block[chunk][x] = {}
-			for y = 0,63,1 do
-				block[chunk][x][y] = 0
-			end 
-		end
-	end
-	for x = 0,5*16-1,1 do
-		n = love.math.noise((x)/80)*30
-		block_setBlockId(x,math.abs(n)+32,3)
-		print(n+26)
-	end
-	--Soiling.
-	for chunk = 0,4,1 do 
-		for x = 0,15,1 do
-			for y = 0,63,1 do
-				if block[chunk][x][y] == 3 then 
-					for n = y,y-3,-1 do
-						block[chunk][x][n] = 2
-					end
-					for n = y-3,0,-1 do
-						block[chunk][x][n] = 1
-					end 
-				end
-			end 
-		end
-	end --]]--
+	__generate()
 end
 
 function love.draw()
 	--Debug block grid
 	for chunk = 0,4,1 do 
-		love.graphics.line((chunk+1)*__scale*16,0,chunk*16*__scale,64)
 		for x = 0,15,1 do
 			for y = 0,63,1 do
 				if block[chunk][x][y] > 0 then 
@@ -135,14 +176,15 @@ function love.draw()
 		end
 	end
 	love.graphics.print(love.timer.getFPS())
-	love.graphics.print({render_x .. " " .. render_y},32,32)
+	--love.graphics.print({render_x .. " " .. render_y},32,32)
 	for id,obj in pairs(entity) do
 		obj:render()
 	end	
 end
 
 function love.keypressed(key)
-
+	if key == 'r' then __generate() end
+	print(pseudoseed)
 end
 
 
