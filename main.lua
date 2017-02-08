@@ -26,7 +26,7 @@ end
 
 function block_getScreenCoordinates(f_chunk,f_x,f_y)
 
-return f_x*__scale+(f_chunk*16*__scale) ,__origin-(f_y-1)*__scale
+return f_x*__scale+(f_chunk*16*__scale)-render_x ,__origin-(f_y-1)*__scale-render_y
 
 end
 
@@ -53,18 +53,19 @@ end
 
 player = {ypos = 64, xpos = 32, vspeed = -0.1, hspeed = 0, health = 20, ground = 0}
 function player.tick(this)
+if this.ground == 0 then this.vspeed = this.vspeed - 0.01 end
+if math.abs(this.vspeed) > 1 then this.vspeed = 0.9 end
 
-if block_isSolid(this.xpos,this.ypos-0.01) then 
+if block_isSolid(this.xpos+0.5,math.ceil(this.ypos)) and block_isSolid(this.xpos-0.5,math.ceil(this.ypos)) then 
 --Vertical collision
-if this.vspeed < 0 then this.ypos = math.ceil(this.ypos) this.ground = 1 end
+if this.vspeed < 0 then this.ypos = math.ceil(this.ypos) this.ground = 1 this.ypos = math.ceil(this.ypos) end
 if this.vspeed > 0 then this.ypos = math.ceil(this.ypos-2) this.ground = 1 this.vspeed = 0 end
 
 
  end
 
-if this.ground == 0 then this.vspeed = this.vspeed - 0.01 end
-if math.abs(this.vspeed) > 1 then this.vspeed = 0 end
-
+if this.ground == 1 then this.vspeed = 0 this.ypos = math.ceil(this.ypos) end
+this.hspeed = this.hspeed * 0.9
 this.xpos = this.xpos + this.hspeed
 this.ypos = this.ypos + this.vspeed
 
@@ -72,11 +73,9 @@ this.ypos = this.ypos + this.vspeed
 end 
 function player.render(this)
 
-	love.graphics.rectangle("fill",400-8,300-16,16,32)
-	--love.graphics.print(this.ground .. " " .. this.xpos .. " " .. this.ypos,this.xpos*__scale+render_x,__origin-(this.ypos*__scale-32)+render_y)
+	love.graphics.rectangle("fill",400-16,300-32,3,64)
 	render_y = __origin-(this.ypos)*__scale-300
 	render_x = (this.xpos)*__scale-400
-	love.graphics.rectangle("fill",this.xpos-render_x,-this.ypos-render_y,__scale,__scale)
 	
 	
 end 
@@ -105,7 +104,7 @@ for chunk = 0,4,1 do
 		m = love.math.noise(pseudoseed,(x)/110)*20
 		q = love.math.noise(pseudoseed,(x)/10)*2
 		block_setBlockId(x,math.abs(n+q)+m+32,3)
-		print(n+26)
+		--print(n+26)
 	end
 	--Soiling.
 	for chunk = 0,4,1 do 
@@ -167,10 +166,9 @@ function love.draw()
 	for chunk = 0,4,1 do 
 		for x = 0,15,1 do
 			for y = 0,63,1 do
-				if block[chunk][x][y] > 0 then 
-				--print(chunk, x ,y)
+				if block[chunk][x][y] > 0 and chunk > player.xpos/16-2 and chunk < player.xpos/16+2 then 
 				i_x, i_y = block_getScreenCoordinates(chunk or 0,x or 0,y or 0)
-				love.graphics.draw(terrain,texture[block[chunk][x][y]],i_x-render_x,i_y-render_y,0,__scale/16,__scale/16)
+				love.graphics.draw(terrain,texture[block[chunk][x][y]],i_x,i_y,0,__scale/16,__scale/16)
 				end
 			end 
 		end
@@ -184,7 +182,9 @@ end
 
 function love.keypressed(key)
 	if key == 'r' then __generate() end
-	print(pseudoseed)
+	if key == 'a' then entity[0].hspeed = -0.06 end
+	if key == 'd' then entity[0].hspeed = 0.06 end
+	if key == 'w' then entity[0].ypos = entity[0].ypos + 0.1 entity[0].ground = 0 entity[0].vspeed = 0.16 end
 end
 
 
