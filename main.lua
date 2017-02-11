@@ -26,6 +26,14 @@ end
 
 function block_getScreenCoordinates(f_chunk,f_x,f_y)
 
+if f_y == nil then
+
+f_y = f_x
+f_x = f_chunk
+f_chunk = math.floor(f_x/16)
+
+end
+
 return f_x*__scale+(f_chunk*16*__scale)-render_x ,__origin-(f_y-1)*__scale-render_y
 
 end
@@ -34,7 +42,7 @@ block_solidLookupTable = {1,2,3,4,5,6,7,8}
 
 function block_isSolid(x,y)
 
-local id = block_getBlockId(x,y)
+local id = block_getBlockId(x or 0,y or 0)
 for key,value in pairs(block_solidLookupTable) do
 	if id == value then return true end
 end
@@ -56,33 +64,32 @@ function player.tick(this)
 if this.ground == 0 then this.vspeed = this.vspeed - 0.01 end
 if math.abs(this.vspeed) > 1 then this.vspeed = 0.9 end
 
-if block_isSolid(this.xpos+0.5,math.ceil(this.ypos)) and block_isSolid(this.xpos-0.5,math.ceil(this.ypos)) then 
+if block_isSolid(this.xpos,math.ceil(this.ypos)) then 
 --Vertical collision
 if this.vspeed < 0 then this.ypos = math.ceil(this.ypos) this.ground = 1 this.ypos = math.ceil(this.ypos) end
 if this.vspeed > 0 then this.ypos = math.ceil(this.ypos-2) this.ground = 1 this.vspeed = 0 end
 
 
- end
+elseif not block_isSolid(this.xpos,math.ceil(this.ypos)) and this.ground == 1 then this.ground = 0 end
 
 if this.ground == 1 then this.vspeed = 0 this.ypos = math.ceil(this.ypos) end
 this.hspeed = this.hspeed * 0.9
+if block_isSolid(this.xpos + this.hspeed,this.ypos+1) then this.hspeed = 0 end
 this.xpos = this.xpos + this.hspeed
 this.ypos = this.ypos + this.vspeed
 
 
 end 
 function player.render(this)
-
-	love.graphics.rectangle("fill",400-16,300-32,3,64)
+	local r_x, r_y = block_getScreenCoordinates(this.xpos,this.ypos)
+	love.graphics.rectangle("fill",400-2,300-32,4,64)
 	render_y = __origin-(this.ypos)*__scale-300
 	render_x = (this.xpos)*__scale-400
 	
 	
 end 
 
-entity = {}
-entity[0] = {}
-setmetatable(entity[0],{__index = player})
+
 
 -------------------------------------------------------------------------------------------------------------------------------
 
@@ -159,15 +166,19 @@ function love.load()
 	__origin = 63 * __scale
 	block = {}
 	__generate()
+	entity = {}
+	entity[0] = {}
+	setmetatable(entity[0],{__index = player})
 end
 
 function love.draw()
-	--Debug block grid
 	for chunk = 0,4,1 do 
 		for x = 0,15,1 do
-			for y = 0,63,1 do
-				if block[chunk][x][y] > 0 and chunk > player.xpos/16-2 and chunk < player.xpos/16+2 then 
-				i_x, i_y = block_getScreenCoordinates(chunk or 0,x or 0,y or 0)
+			for y = math.ceil(entity[0].ypos-15)%63,math.ceil(entity[0].ypos+9)%63,1 do
+			--print(entity[0].ypos,y)
+			--for y = 0,63,1 do
+				if block[chunk][x][y] > 0 and chunk > entity[0].xpos/16-2 and chunk < entity[0].xpos/16+2 then 
+				i_x, i_y = block_getScreenCoordinates(chunk or -1,x or 0,y or -1)
 				love.graphics.draw(terrain,texture[block[chunk][x][y]],i_x,i_y,0,__scale/16,__scale/16)
 				end
 			end 
@@ -182,9 +193,7 @@ end
 
 function love.keypressed(key)
 	if key == 'r' then __generate() end
-	if key == 'a' then entity[0].hspeed = -0.06 end
-	if key == 'd' then entity[0].hspeed = 0.06 end
-	if key == 'w' then entity[0].ypos = entity[0].ypos + 0.1 entity[0].ground = 0 entity[0].vspeed = 0.16 end
+	if key == 'w' and entity[0].ground < 7 then entity[0].ypos = entity[0].ypos + 0.1 entity[0].ground = 0 entity[0].vspeed = 0.16 end
 end
 
 
@@ -192,10 +201,13 @@ end
 
 
 function love.update(dt)
-	if dt < 1/30 then
+gdt = dt
+	if dt < 1/60 then
 		love.timer.sleep(1/60 - dt)
 	end
 	for id,obj in pairs(entity) do
 		obj:tick()
 	end	
+	if love.keyboard.isDown 'a' then entity[0].hspeed = -dt*6 end
+	if love.keyboard.isDown 'd' then entity[0].hspeed = dt*6 end
 end
