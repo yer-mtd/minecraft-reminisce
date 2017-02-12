@@ -76,13 +76,13 @@ if this.ground == 1 then this.vspeed = 0 this.ypos = math.ceil(this.ypos) end
 this.hspeed = this.hspeed * 0.9
 if block_isSolid(this.xpos + this.hspeed,this.ypos+1) then this.hspeed = 0 end
 this.xpos = this.xpos + this.hspeed
-this.ypos = this.ypos + this.vspeed
+this.ypos = this.ypos + this.vspeed 
 
 
 end 
 function player.render(this)
 	local r_x, r_y = block_getScreenCoordinates(this.xpos,this.ypos)
-	love.graphics.rectangle("fill",400-2,300-32,4,64)
+	love.graphics.rectangle("fill",400-2,300-__scale,4,__scale*2)
 	render_y = __origin-(this.ypos)*__scale-300
 	render_x = (this.xpos)*__scale-400
 	
@@ -174,10 +174,10 @@ end
 function love.draw()
 	for chunk = 0,4,1 do 
 		for x = 0,15,1 do
-			for y = math.ceil(entity[0].ypos-15)%63,math.ceil(entity[0].ypos+9)%63,1 do
+			for y = math.ceil(entity[0].ypos-12)%63,math.ceil(entity[0].ypos+12)%63,1 do
 			--print(entity[0].ypos,y)
 			--for y = 0,63,1 do
-				if block[chunk][x][y] > 0 and chunk > entity[0].xpos/16-2 and chunk < entity[0].xpos/16+2 then 
+				if block[chunk][x][y] > 0 and chunk > entity[0].xpos/16-2 and chunk < entity[0].xpos/16+1 then 
 				i_x, i_y = block_getScreenCoordinates(chunk or -1,x or 0,y or -1)
 				love.graphics.draw(terrain,texture[block[chunk][x][y]],i_x,i_y,0,__scale/16,__scale/16)
 				end
