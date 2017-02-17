@@ -50,7 +50,7 @@ block_solidLookupTable = {1,2,3,4,5,6,7,8}
 
 function block_isSolid(x,y)
 
-local id = block_getBlockId(x or 0,y or 0)
+local id = block_getBlockId(x or 0,math.ceil(y or 0))
 for key,value in pairs(block_solidLookupTable) do
 	if id == value then return true end
 end
@@ -67,42 +67,41 @@ end
 
 --PLAYER CLASS-----------------------------------------------------------------------------------------------------------------
 
-player = {cdt = 0, ypos = 64, xpos = 32, vspeed = -0.1, hspeed = 0, health = 20, ground = 0}
+player = {xhit = 0.3 , yhit = 2, cdt = 0, ypos = 32, xpos = 32, vspeed = 0, hspeed = 0, health = 20, ground = 1}
 function player.tick(this)
 if this.ground == 0 then this.vspeed = this.vspeed - 0.005 end
 if math.abs(this.vspeed) > 1 then this.vspeed = 0.9 end
 
-if block_isSolid(this.xpos,math.ceil(this.ypos)) or block_isSolid(this.xpos,math.ceil(this.ypos+1)) then 
---Vertical collision
-if this.vspeed < 0 then this.ypos = math.ceil(this.ypos) this.ground = 1 this.ypos = math.ceil(this.ypos) end
-if this.vspeed > 0 then this.ypos = math.ceil(this.ypos-1) this.vspeed = 0 end
-
-
-elseif not block_isSolid(this.xpos,math.ceil(this.ypos)) and this.ground == 1 then this.ground = 0 end
-
-if this.ground == 1 then this.vspeed = 0 this.ypos = math.ceil(this.ypos) end
-
-if block_isSolid(this.xpos + this.hspeed,this.ypos+1) or block_isSolid(this.xpos + this.hspeed,this.ypos+2) then 
-
-if this.hspeed > 0 then this.xpos = math.ceil(this.xpos) - 0.05 this.hspeed = 0 end 
-if this.hspeed < 0 then this.xpos = math.floor(this.xpos) + 0.05 this.hspeed = 0 end 
-
-
+if this.hspeed > 0 then
+if block_isSolid(this.xpos + this.hspeed + this.xhit,this.ypos+0.5) or block_isSolid(this.xpos + this.hspeed + this.xhit,this.ypos+2) then this.hspeed = 0 end
 end
+
+if this.hspeed < 0 then
+if block_isSolid(this.xpos + this.hspeed - this.xhit,this.ypos+0.5) or block_isSolid(this.xpos + this.hspeed - this.xhit,this.ypos+2) then this.hspeed = 0 end
+end
+
+if this.vspeed < 0 then
+if block_isSolid(this.xpos+this.xhit,this.ypos) or block_isSolid(this.xpos-this.xhit,this.ypos) then this.vspeed = 0 this.ground = 1 this.ypos = math.ceil(this.ypos) end
+end
+
+if this.vspeed > 0 then
+if block_isSolid(this.xpos+this.xhit,this.ypos+2) or block_isSolid(this.xpos-this.xhit,this.ypos+2) then this.vspeed = 0 end
+end
+
+if not block_isSolid(this.xpos + this.xhit,this.ypos) or not block_isSolid(this.xpos + this.xhit,this.ypos) then this.ground = 0 end
+
 this.xpos = this.xpos + this.hspeed
 this.ypos = this.ypos + this.vspeed 
-
 if this.hspeed > 0 and this.hspeed < 0.001 then this.hspeed = 0 end
 if this.hspeed < 0 and this.hspeed > -0.001 then this.hspeed = 0 end
 
 end 
 function player.render(this)
-	local r_x, r_y = block_getScreenCoordinates(this.xpos,this.ypos)
 	love.graphics.rectangle("fill",400-2,300-__scale,4,__scale*2)
 	render_y = __origin-(this.ypos)*__scale-300
 	render_x = (this.xpos)*__scale-400
 	love.graphics.print(this.hspeed .. " " .. this.vspeed .. " \n" .. this.xpos .. " " .. this.ypos,32,32)
-	
+	ix,iy = block_getScreenCoordinates(this.xpos,this.ypos)
 end 
 
 
@@ -165,6 +164,8 @@ end
 
 --LOVE FUNCTIONS---------------------------------------------------------------------------------------------------------------
 function love.load()
+	font = love.graphics.newFont("minecraft.ttf",8)
+	love.graphics.setFont(font)
 	love.graphics.setBackgroundColor(0,190,255)
 	selectedblock = 1
 	min_dt = 1/120
@@ -248,8 +249,9 @@ end
 
 
 function love.keypressed(key)
-	if key == 'r' then __generate() end
-	if key == 'w' and entity[0].ground < 7 then entity[0].ypos = entity[0].ypos + 0.1 entity[0].ground = 0 entity[0].vspeed = 0.12 entity[0].cdt = gdt end
+	if key == 'c' then debug.debug() end
+	if key == 'r' then __generate() entity[0].ypos = 63 entity[0].ground = 0 end
+	if key == 'w' and entity[0].ground == 1 then entity[0].ypos = entity[0].ypos + 0.1 entity[0].ground = 0 entity[0].vspeed = 0.12 entity[0].cdt = gdt end
 end
 
 
