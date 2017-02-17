@@ -4,6 +4,15 @@ if value < 0.5 then return math.floor(value) end
 if value == 0.5 then return value end
 end
 
+function debug_dummy() 
+--For use with debug.debug()
+end
+
+
+function debug_draw() 
+--For use with debug.debug()
+end
+
 
 
 function block_setBlockId(x,y,value)
@@ -67,28 +76,28 @@ end
 
 --PLAYER CLASS-----------------------------------------------------------------------------------------------------------------
 
-player = {xhit = 0.3 , yhit = 2, cdt = 0, ypos = 32, xpos = 32, vspeed = 0, hspeed = 0, health = 20, ground = 1}
+player = {facing = 0, xhit = 0.3 , yhit = 2, cdt = 0, ypos = 32, xpos = 32, vspeed = 0, hspeed = 0, health = 20, ground = 1}
 function player.tick(this)
 if this.ground == 0 then this.vspeed = this.vspeed - 0.005 end
 if math.abs(this.vspeed) > 1 then this.vspeed = 0.9 end
 
 if this.hspeed > 0 then
-if block_isSolid(this.xpos + this.hspeed + this.xhit,this.ypos+0.5) or block_isSolid(this.xpos + this.hspeed + this.xhit,this.ypos+2) then this.hspeed = 0 end
+if block_isSolid(this.xpos + this.hspeed + this.xhit,this.ypos+0.5) or block_isSolid(this.xpos + this.hspeed + this.xhit,this.ypos+1.5) then this.hspeed = 0 end
 end
 
 if this.hspeed < 0 then
-if block_isSolid(this.xpos + this.hspeed - this.xhit,this.ypos+0.5) or block_isSolid(this.xpos + this.hspeed - this.xhit,this.ypos+2) then this.hspeed = 0 end
+if block_isSolid(this.xpos + this.hspeed - this.xhit,this.ypos+0.5) or block_isSolid(this.xpos + this.hspeed - this.xhit,this.ypos+1.5) then this.hspeed = 0 end
 end
 
 if this.vspeed < 0 then
 if block_isSolid(this.xpos+this.xhit,this.ypos) or block_isSolid(this.xpos-this.xhit,this.ypos) then this.vspeed = 0 this.ground = 1 this.ypos = math.ceil(this.ypos) end
 end
-
+ 
 if this.vspeed > 0 then
 if block_isSolid(this.xpos+this.xhit,this.ypos+2) or block_isSolid(this.xpos-this.xhit,this.ypos+2) then this.vspeed = 0 end
 end
 
-if not block_isSolid(this.xpos + this.xhit,this.ypos) or not block_isSolid(this.xpos + this.xhit,this.ypos) then this.ground = 0 end
+if not block_isSolid(this.xpos + this.xhit,this.ypos) and not block_isSolid(this.xpos - this.xhit,this.ypos) then this.ground = 0 end
 
 this.xpos = this.xpos + this.hspeed
 this.ypos = this.ypos + this.vspeed 
@@ -97,11 +106,28 @@ if this.hspeed < 0 and this.hspeed > -0.001 then this.hspeed = 0 end
 
 end 
 function player.render(this)
-	love.graphics.rectangle("fill",400-2,300-__scale,4,__scale*2)
+	n = n + 0.08
+	if math.abs(this.hspeed) < 0.01 then n = 0 end 
+	local p_x = 400-2
+	if p_x < love.mouse.getX() then this.facing = 1 else this.facing = -1 end
+	local p_y = 300-__scale
+	--love.graphics.rectangle("fill",400-2,300-__scale,4,__scale*2)
 	render_y = __origin-(this.ypos)*__scale-300
 	render_x = (this.xpos)*__scale-400
 	love.graphics.print(this.hspeed .. " " .. this.vspeed .. " \n" .. this.xpos .. " " .. this.ypos,32,32)
 	ix,iy = block_getScreenCoordinates(this.xpos,this.ypos)
+	--offset_factor = mouse_x-32+mouse_chunk*16
+	love.graphics.draw(char_sprite,playermodel.backarm,p_x+2,p_y+16,math.sin(n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
+	love.graphics.draw(char_sprite,playermodel.body,p_x+2,p_y,0,64/__scale*this.facing,64/__scale,2,-8)
+	if this.facing == 1 then headangle = math.atan2(love.mouse.getY()-p_y,love.mouse.getX()-p_x) else headangle = math.atan2(p_y-love.mouse.getY(),p_x-love.mouse.getX()) end 
+	love.graphics.draw(char_sprite,playermodel.head,p_x+2,p_y+16,headangle,64/__scale*this.facing,64/__scale,4,8)
+	love.graphics.draw(char_sprite,playermodel.hat,p_x+2,p_y+16,headangle,(64/__scale+0.3)*this.facing,64/__scale+0.3,4,8)
+	love.graphics.draw(char_sprite,playermodel.frontarm,p_x+2,p_y+16,math.sin(n)*(-this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
+	love.graphics.draw(char_sprite,playermodel.backleg,p_x+2,p_y+40,math.sin(n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
+	love.graphics.draw(char_sprite,playermodel.frontleg,p_x+2,p_y+40,math.sin(n)*(-this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
+	
+	--print(offset_factor)
+	--print(facing)
 end 
 
 
@@ -179,6 +205,18 @@ function love.load()
 	render_y = 0
 	mouse_x, mouse_y, mouse_chunk = 0
 	texture = {}
+	-- char.png quads
+	char_sprite = love.graphics.newImage("char.png")
+	char_sprite:setFilter "nearest"
+	playermodel = {}
+	playermodel.head = love.graphics.newQuad(0,8,8,8,64,64)
+	playermodel.hat = love.graphics.newQuad(32,8,8,8,64,64)
+	playermodel.body = love.graphics.newQuad(16,20,4,12,64,64)
+	playermodel.frontarm = love.graphics.newQuad(40,20,4,12,64,64)
+	playermodel.backarm = love.graphics.newQuad(32,52,4,12,64,64)
+	playermodel.frontleg = love.graphics.newQuad(0,20,4,12,64,64)
+	playermodel.backleg = love.graphics.newQuad(16,52,4,12,64,64)
+	
 	for i=0,240,16 do
 		for ii=0,240,16 do
 			texture[qq] = love.graphics.newQuad(ii,i,16,16,256,256)
@@ -234,12 +272,14 @@ function love.draw()
 		return
 	end
 	love.timer.sleep(next_time - cur_time)
+	debug_draw()
 end
 
 function love.mousepressed( x, y, button, istouch )
 
 	if button == 1 then block[mouse_chunk][mouse_x][mouse_y] = 0 end
-	if button == 2 then block[mouse_chunk][mouse_x][mouse_y] = selectedblock end
+	if button == 2 and ((mouse_y > entity[0].ypos+2 or mouse_y < entity[0].ypos+1) or (mouse_x + mouse_chunk*16 ~= math.floor(entity[0].xpos)) or (mouse_x + mouse_chunk*16 ~= math.floor(entity[0].xpos-0.5)))
+	then block[mouse_chunk][mouse_x][mouse_y] = selectedblock end
 	if button == 2 and love.keyboard.isDown('lshift') then block[mouse_chunk][mouse_x][mouse_y] = selectedblock + 256 end
 end
 
@@ -271,4 +311,5 @@ next_time = next_time + min_dt
 	if love.keyboard.isDown 'a' then entity[0].hspeed = -0.05 end
 	if love.keyboard.isDown 'd' then entity[0].hspeed = 0.05 end
 	entity[0].hspeed = entity[0].hspeed * 0.8
+debug_dummy()
 end
