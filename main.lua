@@ -81,7 +81,6 @@ if this.vspeed > 0 then this.ypos = math.ceil(this.ypos-1) this.vspeed = 0 end
 elseif not block_isSolid(this.xpos,math.ceil(this.ypos)) and this.ground == 1 then this.ground = 0 end
 
 if this.ground == 1 then this.vspeed = 0 this.ypos = math.ceil(this.ypos) end
-this.hspeed = this.hspeed * 0.9
 
 if block_isSolid(this.xpos + this.hspeed,this.ypos+1) or block_isSolid(this.xpos + this.hspeed,this.ypos+2) then 
 
@@ -153,7 +152,7 @@ for chunk = 0,4,1 do
 			for y=0,63,1 do
 				cave = love.math.noise(((y+0.9)/120)*12,((x+chunk*16)/120)*12,pseudoseed)
 				--print(cave)
-				if cave > 0.6 then block[chunk][x][y] = 0 end 
+				if cave > 0.6 and block[chunk][x][y] ~= 0 then block[chunk][x][y] = block[chunk][x][y] + 256 end 
 				--cave = love.math.noise(((y+0.9)/180)*10,((x+chunk*16)/180)*10,pseudoseed)
 				--print(cave)
 				--if cave > 0.8 then block[chunk][x][y] = 0 end 
@@ -166,6 +165,8 @@ end
 
 --LOVE FUNCTIONS---------------------------------------------------------------------------------------------------------------
 function love.load()
+	love.graphics.setBackgroundColor(0,190,255)
+	selectedblock = 1
 	min_dt = 1/120
 	next_time = love.timer.getTime()
 	pseudoseed = os.time()%9999
@@ -177,15 +178,17 @@ function love.load()
 	render_y = 0
 	mouse_x, mouse_y, mouse_chunk = 0
 	texture = {}
-	for i=0,256,16 do
-		for ii=0,256,16 do
+	for i=0,240,16 do
+		for ii=0,240,16 do
 			texture[qq] = love.graphics.newQuad(ii,i,16,16,256,256)
 			qq = qq + 1
 		end
 	end
-	__scale = 16
+	disbatch = love.graphics.newSpriteBatch(terrain,567,'stream')
+	__scale = 32
 	__origin = 63 * __scale
 	block = {}
+	__height = {}
 	__generate()
 	entity = {}
 	entity[0] = {}
@@ -194,6 +197,7 @@ end
 
 function love.draw()
 	renderblock = 0
+	disbatch:clear()
 	for chunk = 0,4,1 do 
 		for x = 0,15,1 do
 			--print(math.max(math.ceil(entity[0].ypos-12)%63,0),math.min(math.ceil(entity[0].ypos+12)%63,63))
@@ -202,13 +206,19 @@ function love.draw()
 				if x+chunk*16 > entity[0].xpos-14 and x+chunk*16 < entity[0].xpos+13 and y>entity[0].ypos-9 and y<entity[0].ypos+12 then 
 					renderblock = renderblock + 1
 					i_x, i_y = block_getScreenCoordinates(chunk or -1,x or 0,y or -1)
-					love.graphics.draw(terrain,texture[block[chunk][x][y]],i_x,i_y,0,__scale/16,__scale/16)
-					--love.graphics.print(renderblock,i_x,i_y)
+					if block[chunk][x][y] > 256 then disbatch:setColor(128,128,128) end
+					disbatch:add(texture[(block[chunk][x][y])%256],i_x,i_y,0,__scale/16,__scale/16)
+					if block[chunk][x][y] > 256 then disbatch:setColor(255,255,255) end
 				end
 				end
 			end 
 		end
 	end
+	love.graphics.draw(disbatch)
+	--disbatch:flush()
+	local draw = nil
+	local col = nil
+	love.graphics.draw(terrain,texture[selectedblock],700,64,0,3)
 	love.graphics.print(love.timer.getFPS() .. " // " .. renderblock .. " // " .. gdt)
 	--love.graphics.print({render_x .. " " .. render_y},32,32)
 	for id,obj in pairs(entity) do
@@ -228,9 +238,14 @@ end
 function love.mousepressed( x, y, button, istouch )
 
 	if button == 1 then block[mouse_chunk][mouse_x][mouse_y] = 0 end
-	if button == 2 then block[mouse_chunk][mouse_x][mouse_y] = 1 end
-	
+	if button == 2 then block[mouse_chunk][mouse_x][mouse_y] = selectedblock end
+	if button == 2 and love.keyboard.isDown('lshift') then block[mouse_chunk][mouse_x][mouse_y] = selectedblock + 256 end
 end
+
+function love.wheelmoved(x, y)
+	selectedblock = ((selectedblock) + y)%256
+end
+
 
 function love.keypressed(key)
 	if key == 'r' then __generate() end
@@ -251,6 +266,7 @@ next_time = next_time + min_dt
 	mouse_chunk = math.floor(math.floor((love.mouse.getX())/__scale+render_x/__scale)/16)
 	mouse_x = math.floor((love.mouse.getX())/__scale+render_x/__scale)%16
 	mouse_y = math.ceil(math.abs((love.mouse.getY())/__scale+render_y/__scale-64))
-	if love.keyboard.isDown 'a' then entity[0].hspeed = -0.06 end
-	if love.keyboard.isDown 'd' then entity[0].hspeed = 0.06 end
+	if love.keyboard.isDown 'a' then entity[0].hspeed = -0.05 end
+	if love.keyboard.isDown 'd' then entity[0].hspeed = 0.05 end
+	entity[0].hspeed = entity[0].hspeed * 0.8
 end
