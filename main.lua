@@ -4,6 +4,13 @@ if value < 0.5 then return math.floor(value) end
 if value == 0.5 then return value end
 end
 
+function is_intersecting_player()
+if lit_mouse_x+mouse_chunk*16 > entity[0].xpos-0.5 and lit_mouse_x+mouse_chunk*16 < entity[0].xpos+0.5 then local xo = 1 else xo = nil end
+if lit_mouse_y > entity[0].ypos and lit_mouse_y < entity[0].ypos+2 then local yo = 1 else yo = nil end
+if xo and yo then return true end
+end
+
+
 function debug_dummy() 
 --For use with debug.debug()
 end
@@ -74,10 +81,8 @@ function global_saveChunk(num)
 
 end
 
---PLAYER CLASS-----------------------------------------------------------------------------------------------------------------
+function entityphysics(this)
 
-player = {facing = 0, xhit = 0.3 , yhit = 2, cdt = 0, ypos = 32, xpos = 32, vspeed = 0, hspeed = 0, health = 20, ground = 1}
-function player.tick(this)
 if this.ground == 0 then this.vspeed = this.vspeed - 0.005 end
 if math.abs(this.vspeed) > 1 then this.vspeed = 0.9 end
 
@@ -104,6 +109,17 @@ this.ypos = this.ypos + this.vspeed
 if this.hspeed > 0 and this.hspeed < 0.001 then this.hspeed = 0 end
 if this.hspeed < 0 and this.hspeed > -0.001 then this.hspeed = 0 end
 
+
+end
+
+
+--PLAYER CLASS-----------------------------------------------------------------------------------------------------------------
+
+player = {facing = 0, xhit = 0.3 , yhit = 2, cdt = 0, ypos = 32, xpos = 32, vspeed = 0, hspeed = 0, health = 20, ground = 1}
+function player.tick(this)
+
+entityphysics(this)
+
 end 
 function player.render(this)
 	n = n + 0.08
@@ -117,14 +133,14 @@ function player.render(this)
 	love.graphics.print(this.hspeed .. " " .. this.vspeed .. " \n" .. this.xpos .. " " .. this.ypos,32,32)
 	ix,iy = block_getScreenCoordinates(this.xpos,this.ypos)
 	--offset_factor = mouse_x-32+mouse_chunk*16
-	love.graphics.draw(char_sprite,playermodel.backarm,p_x+2,p_y+16,math.sin(n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
+	love.graphics.draw(char_sprite,playermodel.backarm,p_x+2,p_y+16,math.sin(-n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
 	love.graphics.draw(char_sprite,playermodel.body,p_x+2,p_y,0,64/__scale*this.facing,64/__scale,2,-8)
 	if this.facing == 1 then headangle = math.atan2(love.mouse.getY()-p_y,love.mouse.getX()-p_x) else headangle = math.atan2(p_y-love.mouse.getY(),p_x-love.mouse.getX()) end 
 	love.graphics.draw(char_sprite,playermodel.head,p_x+2,p_y+16,headangle,64/__scale*this.facing,64/__scale,4,8)
 	love.graphics.draw(char_sprite,playermodel.hat,p_x+2,p_y+16,headangle,(64/__scale+0.3)*this.facing,64/__scale+0.3,4,8)
-	love.graphics.draw(char_sprite,playermodel.frontarm,p_x+2,p_y+16,math.sin(n)*(-this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
+	love.graphics.draw(char_sprite,playermodel.frontarm,p_x+2,p_y+16,math.sin(n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
 	love.graphics.draw(char_sprite,playermodel.backleg,p_x+2,p_y+40,math.sin(n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
-	love.graphics.draw(char_sprite,playermodel.frontleg,p_x+2,p_y+40,math.sin(n)*(-this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
+	love.graphics.draw(char_sprite,playermodel.frontleg,p_x+2,p_y+40,math.sin(-n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
 	
 	--print(offset_factor)
 	--print(facing)
@@ -135,7 +151,10 @@ end
 -------------------------------------------------------------------------------------------------------------------------------
 
 function __generate()
-pseudoseed = os.time()%99999
+--highseed = math.floor(os.time()%9999999999 / 100000)
+--lowseed = (os.time()%9999999999 / 100000)%math.floor(os.time()%9999999999/100000)*100000
+--rint(pseudoseed,os.time()%9999999999)
+pseudoseed = os.time()%999999
 --pseudoseed = 0
 --We're gonna have 16x64 chunks for now. Let's get generating. Raising.
 for chunk = 0,4,1 do 
@@ -190,6 +209,9 @@ end
 
 --LOVE FUNCTIONS---------------------------------------------------------------------------------------------------------------
 function love.load()
+	http = require("socket.http")
+	local b, c, h = http.request("http://mcapi.ca/rawskin/_Wilde_")
+	love.filesystem.write("skin.png", b)
 	font = love.graphics.newFont("minecraft.ttf",8)
 	love.graphics.setFont(font)
 	love.graphics.setBackgroundColor(0,190,255)
@@ -206,7 +228,7 @@ function love.load()
 	mouse_x, mouse_y, mouse_chunk = 0
 	texture = {}
 	-- char.png quads
-	char_sprite = love.graphics.newImage("char.png")
+	char_sprite = love.graphics.newImage("skin.png")
 	char_sprite:setFilter "nearest"
 	playermodel = {}
 	playermodel.head = love.graphics.newQuad(0,8,8,8,64,64)
@@ -245,7 +267,7 @@ function love.draw()
 				if x+chunk*16 > entity[0].xpos-14 and x+chunk*16 < entity[0].xpos+13 and y>entity[0].ypos-9 and y<entity[0].ypos+12 then 
 					renderblock = renderblock + 1
 					i_x, i_y = block_getScreenCoordinates(chunk or -1,x or 0,y or -1)
-					if block[chunk][x][y] > 256 then disbatch:setColor(128,128,128) end
+					if block[chunk][x][y] > 256 then disbatch:setColor(190,190,190) end
 					disbatch:add(texture[(block[chunk][x][y])%256],i_x,i_y,0,__scale/16,__scale/16)
 					if block[chunk][x][y] > 256 then disbatch:setColor(255,255,255) end
 				end
@@ -276,11 +298,13 @@ function love.draw()
 end
 
 function love.mousepressed( x, y, button, istouch )
-
-	if button == 1 then block[mouse_chunk][mouse_x][mouse_y] = 0 end
+if is_intersecting_player then
+	if button == 1 and not love.keyboard.isDown('lshift') then block[mouse_chunk][mouse_x][mouse_y] = 0 end
+	if button == 1 and love.keyboard.isDown('lshift') then if block[mouse_chunk][mouse_x][mouse_y] < 256 then block[mouse_chunk][mouse_x][mouse_y] = block[mouse_chunk][mouse_x][mouse_y] + 256 else block[mouse_chunk][mouse_x][mouse_y] = block[mouse_chunk][mouse_x][mouse_y] - 256 end end
 	if button == 2 and ((mouse_y > entity[0].ypos+2 or mouse_y < entity[0].ypos+1) or (mouse_x + mouse_chunk*16 ~= math.floor(entity[0].xpos)) or (mouse_x + mouse_chunk*16 ~= math.floor(entity[0].xpos-0.5)))
 	then block[mouse_chunk][mouse_x][mouse_y] = selectedblock end
 	if button == 2 and love.keyboard.isDown('lshift') then block[mouse_chunk][mouse_x][mouse_y] = selectedblock + 256 end
+end
 end
 
 function love.wheelmoved(x, y)
@@ -307,9 +331,11 @@ next_time = next_time + min_dt
 	end	
 	mouse_chunk = math.floor(math.floor((love.mouse.getX())/__scale+render_x/__scale)/16)
 	mouse_x = math.floor((love.mouse.getX())/__scale+render_x/__scale)%16
+	lit_mouse_x = (love.mouse.getX()/__scale+render_x/__scale)%16
 	mouse_y = math.ceil(math.abs((love.mouse.getY())/__scale+render_y/__scale-64))
+	lit_mouse_y = math.abs((love.mouse.getY())/__scale+render_y/__scale-64)
 	if love.keyboard.isDown 'a' then entity[0].hspeed = -0.05 end
 	if love.keyboard.isDown 'd' then entity[0].hspeed = 0.05 end
 	entity[0].hspeed = entity[0].hspeed * 0.8
-debug_dummy()
+	debug_dummy()
 end
