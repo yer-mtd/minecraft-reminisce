@@ -26,7 +26,7 @@ function block_setBlockId(x,y,value)
 
 math.randomseed(3)
 
-local target_chunk = math.floor(x/16)
+local target_chunk = tostring(math.floor(x/16))
 local rel_x = (math.floor(x)%16)
 local rel_y = math.floor(y)
 if rel_y < 63 or rel_y > 1 then block[target_chunk][rel_x][rel_y] = value end
@@ -39,7 +39,7 @@ function block_getBlockId(x,y)
 
 
 
-local target_chunk = math.floor(x/16)
+local target_chunk = tostring(math.floor(x/16))
 local rel_x = (math.floor(x)%16)
 local rel_y = math.floor(y)
 if rel_y < 63 or rel_y > 1 then return block[target_chunk][rel_x][rel_y] end
@@ -115,14 +115,14 @@ end
 
 --PLAYER CLASS-----------------------------------------------------------------------------------------------------------------
 
-player = {facing = 0, xhit = 0.3 , yhit = 2, cdt = 0, ypos = 32, xpos = 32, vspeed = 0, hspeed = 0, health = 20, ground = 1}
+player = {n = 0, facing = 0, xhit = 0.3 , yhit = 2, cdt = 0, ypos = 64, xpos = 0, vspeed = 0, hspeed = 0, health = 20, ground = 1}
 function player.tick(this)
 
 entityphysics(this)
 
 end 
 function player.render(this)
-	n = n + 0.08
+	this.n = this.n + 0.08
 	if math.abs(this.hspeed) < 0.01 then n = 0 end 
 	local p_x = 400-2
 	if p_x < love.mouse.getX() then this.facing = 1 else this.facing = -1 end
@@ -133,14 +133,14 @@ function player.render(this)
 	love.graphics.print(this.hspeed .. " " .. this.vspeed .. " \n" .. this.xpos .. " " .. this.ypos,32,32)
 	ix,iy = block_getScreenCoordinates(this.xpos,this.ypos)
 	--offset_factor = mouse_x-32+mouse_chunk*16
-	love.graphics.draw(char_sprite,playermodel.backarm,p_x+2,p_y+16,math.sin(-n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
+	love.graphics.draw(char_sprite,playermodel.backarm,p_x+2,p_y+16,math.sin(-this.n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
 	love.graphics.draw(char_sprite,playermodel.body,p_x+2,p_y,0,64/__scale*this.facing,64/__scale,2,-8)
 	if this.facing == 1 then headangle = math.atan2(love.mouse.getY()-p_y,love.mouse.getX()-p_x) else headangle = math.atan2(p_y-love.mouse.getY(),p_x-love.mouse.getX()) end 
 	love.graphics.draw(char_sprite,playermodel.head,p_x+2,p_y+16,headangle,64/__scale*this.facing,64/__scale,4,8)
 	love.graphics.draw(char_sprite,playermodel.hat,p_x+2,p_y+16,headangle,(64/__scale+0.3)*this.facing,64/__scale+0.3,4,8)
-	love.graphics.draw(char_sprite,playermodel.frontarm,p_x+2,p_y+16,math.sin(n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
-	love.graphics.draw(char_sprite,playermodel.backleg,p_x+2,p_y+40,math.sin(n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
-	love.graphics.draw(char_sprite,playermodel.frontleg,p_x+2,p_y+40,math.sin(-n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
+	love.graphics.draw(char_sprite,playermodel.frontarm,p_x+2,p_y+16,math.sin(this.n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
+	love.graphics.draw(char_sprite,playermodel.backleg,p_x+2,p_y+40,math.sin(this.n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
+	love.graphics.draw(char_sprite,playermodel.frontleg,p_x+2,p_y+40,math.sin(-this.n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
 	
 	--print(offset_factor)
 	--print(facing)
@@ -151,22 +151,23 @@ end
 -------------------------------------------------------------------------------------------------------------------------------
 
 function __generate()
+chunkcount = 8
 --highseed = math.floor(os.time()%9999999999 / 100000)
 --lowseed = (os.time()%9999999999 / 100000)%math.floor(os.time()%9999999999/100000)*100000
 --rint(pseudoseed,os.time()%9999999999)
 pseudoseed = os.time()%999999
 --pseudoseed = 0
 --We're gonna have 16x64 chunks for now. Let's get generating. Raising.
-for chunk = 0,4,1 do 
-		block[chunk] = {}
+for chunk = -chunkcount,chunkcount,1 do 
+		block[tostring(chunk)] = {}
 		for x = 0,15,1 do
-			block[chunk][x] = {}
+			block[tostring(chunk)][x] = {}
 			for y = 0,63,1 do
-				block[chunk][x][y] = 0
+				block[tostring(chunk)][x][y] = 0
 			end 
 		end
 	end
-	for x = 0,5*16-1,1 do
+	for x = -chunkcount*16,chunkcount*16-1,1 do
 		n = love.math.noise(pseudoseed,x/30)*10
 		m = love.math.noise(pseudoseed,x/70)*10
 		q = love.math.noise(pseudoseed,x/3)*2
@@ -174,32 +175,32 @@ for chunk = 0,4,1 do
 		--print(n+26)
 	end
 	--Soiling.
-	for chunk = 0,4,1 do 
+	for chunk = -chunkcount,chunkcount,1 do 
 		for x = 0,15,1 do
 			for y = 0,63,1 do
-				if block[chunk][x][y] == 3 then 
+				if block[tostring(chunk)][x][y] == 3 then 
 				m = 3+math.floor(love.math.noise(pseudoseed,x/3)*2)
 				print(m)
 					for n = y-1,y-m,-1 do
-						block[chunk][x][n] = 2
+						block[tostring(chunk)][x][n] = 2
 					end
 					for n = y-m,0,-1 do
-						block[chunk][x][n] = 1
+						block[tostring(chunk)][x][n] = 1
 					end 
 				end
 			end 
 		end
 	end
 	--Carving.
-	for chunk = 0,4,1 do
+	for chunk = -chunkcount,chunkcount,1 do
 		for x=0,15,1 do
 			for y=0,63,1 do
 				cave = love.math.noise(((y+0.9)/120)*12,((x+chunk*16)/120)*12,pseudoseed)
 				--print(cave)
-				if cave > 0.6 and block[chunk][x][y] ~= 0 then block[chunk][x][y] = block[chunk][x][y] + 256 end 
+				if cave > 0.6 and block[tostring(chunk)][x][y] ~= 0 then block[tostring(chunk)][x][y] = block[tostring(chunk)][x][y] + 256 end 
 				--cave = love.math.noise(((y+0.9)/180)*10,((x+chunk*16)/180)*10,pseudoseed)
 				--print(cave)
-				--if cave > 0.8 then block[chunk][x][y] = 0 end 
+				--if cave > 0.8 then block[tostring(chunk)][x][y] = 0 end 
 			end 
 		end
 	end
@@ -210,7 +211,7 @@ end
 --LOVE FUNCTIONS---------------------------------------------------------------------------------------------------------------
 function love.load()
 	http = require("socket.http")
-	local b, c, h = http.request("http://mcapi.ca/rawskin/_Wilde_")
+	local b, c, h = http.request("http://mcapi.ca/rawskin/MetoolDaddy")
 	love.filesystem.write("skin.png", b)
 	font = love.graphics.newFont("minecraft.ttf",8)
 	love.graphics.setFont(font)
@@ -218,7 +219,6 @@ function love.load()
 	selectedblock = 1
 	min_dt = 1/120
 	next_time = love.timer.getTime()
-	pseudoseed = os.time()%9999
 	--Load terrain png and shear it into quads
 	terrain = love.graphics.newImage("terrain.png")
 	terrain:setFilter("nearest")
@@ -259,17 +259,17 @@ end
 function love.draw()
 	renderblock = 0
 	disbatch:clear()
-	for chunk = 0,4,1 do 
+	for chunk = math.max(math.floor(entity[0].xpos/16)-2,-chunkcount),math.min(math.floor(entity[0].xpos/16)+2,chunkcount),1 do 
 		for x = 0,15,1 do
 			--print(math.max(math.ceil(entity[0].ypos-12)%63,0),math.min(math.ceil(entity[0].ypos+12)%63,63))
 			for y=0,63,1 do
-				if block[chunk][x][y] > 0 and chunk > entity[0].xpos/16-2 and chunk < entity[0].xpos/16+1 then 
+				if block[tostring(chunk)][x][y] > 0 and chunk > entity[0].xpos/16-2 and chunk < entity[0].xpos/16+1 then 
 				if x+chunk*16 > entity[0].xpos-14 and x+chunk*16 < entity[0].xpos+13 and y>entity[0].ypos-9 and y<entity[0].ypos+12 then 
 					renderblock = renderblock + 1
 					i_x, i_y = block_getScreenCoordinates(chunk or -1,x or 0,y or -1)
-					if block[chunk][x][y] > 256 then disbatch:setColor(190,190,190) end
-					disbatch:add(texture[(block[chunk][x][y])%256],i_x,i_y,0,__scale/16,__scale/16)
-					if block[chunk][x][y] > 256 then disbatch:setColor(255,255,255) end
+					if block[tostring(chunk)][x][y] > 256 then disbatch:setColor(190,190,190) end
+					disbatch:add(texture[(block[tostring(chunk)][x][y])%256],i_x,i_y,0,__scale/16,__scale/16)
+					if block[tostring(chunk)][x][y] > 256 then disbatch:setColor(255,255,255) end
 				end
 				end
 			end 
@@ -299,11 +299,11 @@ end
 
 function love.mousepressed( x, y, button, istouch )
 if is_intersecting_player then
-	if button == 1 and not love.keyboard.isDown('lshift') then block[mouse_chunk][mouse_x][mouse_y] = 0 end
-	if button == 1 and love.keyboard.isDown('lshift') then if block[mouse_chunk][mouse_x][mouse_y] < 256 then block[mouse_chunk][mouse_x][mouse_y] = block[mouse_chunk][mouse_x][mouse_y] + 256 else block[mouse_chunk][mouse_x][mouse_y] = block[mouse_chunk][mouse_x][mouse_y] - 256 end end
+	if button == 1 and love.keyboard.isDown('lshift') then if block[tostring(mouse_chunk)][mouse_x][mouse_y] < 256 then block[tostring(mouse_chunk)][mouse_x][mouse_y] = block[tostring(mouse_chunk)][mouse_x][mouse_y] + 256 else block[tostring(mouse_chunk)][mouse_x][mouse_y] = block[tostring(mouse_chunk)][mouse_x][mouse_y] - 256 end end
+	if button == 1 and not love.keyboard.isDown('lshift') then block[tostring(mouse_chunk)][mouse_x][mouse_y] = 0 end
 	if button == 2 and ((mouse_y > entity[0].ypos+2 or mouse_y < entity[0].ypos+1) or (mouse_x + mouse_chunk*16 ~= math.floor(entity[0].xpos)) or (mouse_x + mouse_chunk*16 ~= math.floor(entity[0].xpos-0.5)))
-	then block[mouse_chunk][mouse_x][mouse_y] = selectedblock end
-	if button == 2 and love.keyboard.isDown('lshift') then block[mouse_chunk][mouse_x][mouse_y] = selectedblock + 256 end
+	then block[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock end
+	if button == 2 and love.keyboard.isDown('lshift') then block[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock + 256 end
 end
 end
 
