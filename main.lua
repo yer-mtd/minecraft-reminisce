@@ -116,8 +116,53 @@ if this.hspeed < 0 and this.hspeed > -0.001 then this.hspeed = 0 end
 end
 
 
---PLAYER CLASS-----------------------------------------------------------------------------------------------------------------
+function graphics_update()
+	print 'Update'
+	local localplayer = entity[0]
+	local renderblock = 0
+	local block = block
+	bgbatch:clear()
+	disbatch:clear()
+	for chunk = math.max(math.floor(localplayer.xpos/16)-2,-chunkcount),math.min(math.floor(localplayer.xpos/16)+2,chunkcount),1 do 
+		for x = 0,15,1 do
+			for y=0,63,1 do
+				if bgblock[tostring(chunk)][x][y] > 0 and chunk > localplayer.xpos/16-2 and chunk < localplayer.xpos/16+1 then 
+				--if x+chunk*16 > entity[0].xpos-14 and x+chunk*16 < entity[0].xpos+13 and y>entity[0].ypos-9 and y<entity[0].ypos+12 then 
+				if x+chunk*16 > localplayer.xpos-17 and x+chunk*16 < localplayer.xpos+16 and y>localplayer.ypos-17 and y<localplayer.ypos+16 then 
+					renderblock = renderblock + 1
+					local i_x, i_y = block_getScreenCoordinates(chunk or -1,x or 0,y or -1)
+					i_x = i_x + render_x
+					i_y = i_y + render_y
+					bgbatch:add(texture[(bgblock[tostring(chunk)][x][y])],i_x,i_y,0,__scale/16,__scale/16)
+				end
+				end
+			end 
+		end
+	end	
+	for chunk = math.max(math.floor(localplayer.xpos/16)-2,-chunkcount),math.min(math.floor(localplayer.xpos/16)+2,chunkcount),1 do 
+		for x = 0,15,1 do
+			for y=0,63,1 do
+				if block[tostring(chunk)][x][y]> 0 and chunk > localplayer.xpos/16-2 and chunk < localplayer.xpos/16+1 then 
+				if x+chunk*16 > localplayer.xpos-17 and x+chunk*16 < localplayer.xpos+16 and y>localplayer.ypos-17 and y<localplayer.ypos+16 then 
+					renderblock = renderblock + 1
+					local i_x, i_y = block_getScreenCoordinates(chunk or -1,x or 0,y or -1)
+					i_x = i_x + render_x
+					i_y = i_y + render_y
+					disbatch:add(texture[(block[tostring(chunk)][x][y])],i_x,i_y,0,__scale/16,__scale/16)
+				end
+				end
+			end 
+		end
+	end
 
+
+end
+
+
+
+--PLAYER CLASS-----------------------------------------------------------------------------------------------------------------
+oldxpos = 0
+oldypos = 0
 player = {n = 0, facing = 0, xhit = 0.3 , yhit = 2, cdt = 0, ypos = 64, xpos = 0, vspeed = 0, hspeed = 0, health = 20, ground = 1}
 function player.tick(this)
 
@@ -126,6 +171,8 @@ entityphysics(this)
 end 
 handanim = 0
 function player.render(this)
+	if this.xpos + 3 < oldxpos or this.xpos - 3 > oldxpos or this.ypos + 3 < oldypos or this.ypos - 3 > oldypos then graphics_update() oldxpos = this.xpos oldypos = this.ypos end
+	--print(this.xpos,oldxpos)
 	this.n = this.n + 0.04 + math.abs(this.hspeed)
 	handanim = handanim + 0.007
 	handval = math.sin(handanim)/15 * this.facing
@@ -135,9 +182,7 @@ function player.render(this)
 	if p_x < love.mouse.getX() then this.facing = 1 else this.facing = -1 end
 	local p_y = 300-__scale - math.abs(math.sin(this.n)*2)
 	--love.graphics.rectangle("fill",400-2,300-__scale,4,__scale*2)
-	render_y = __origin-(this.ypos)*__scale-300
-	render_x = (this.xpos)*__scale-400
-	love.graphics.print(this.hspeed .. " " .. this.vspeed .. " \n" .. this.xpos .. " " .. this.ypos,32,32)
+	--love.graphics.print(this.hspeed .. " " .. this.vspeed .. " \n" .. this.xpos .. " " .. this.ypos,32,32)
 	ix,iy = block_getScreenCoordinates(this.xpos,this.ypos)
 	--offset_factor = mouse_x-32+mouse_chunk*16
 	love.graphics.draw(char_sprite,playermodel.backarm,p_x+2,p_y+16,math.sin(-this.n)*(this.hspeed*20)-handval,64/__scale*this.facing,64/__scale,2,0)
@@ -225,7 +270,18 @@ for chunk = -chunkcount,chunkcount,1 do
 
 end
 
+
+
+
+
+
 --LOVE FUNCTIONS---------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
 function love.load()
 	http = require("socket.http")
 	local b, c, h = http.request("http://mcapi.ca/rawskin/MetoolDaddy")
@@ -262,7 +318,9 @@ function love.load()
 			qq = qq + 1
 		end
 	end
-	disbatch = love.graphics.newSpriteBatch(terrain,567*2,'stream')
+	disbatch = love.graphics.newSpriteBatch(terrain,1000,'dynamic')
+	bgbatch = love.graphics.newSpriteBatch(terrain,1000,'dynamic')
+	bgbatch:setColor(190,190,190)
 	__scale = 32
 	__origin = 63 * __scale
 	block = {}
@@ -274,67 +332,36 @@ function love.load()
 end
 
 function love.draw()
-	renderblock = 0
-	disbatch:clear()
-	for chunk = math.max(math.floor(entity[0].xpos/16)-2,-chunkcount),math.min(math.floor(entity[0].xpos/16)+2,chunkcount),1 do 
-		for x = 0,15,1 do
-			--print(math.max(math.ceil(entity[0].ypos-12)%63,0),math.min(math.ceil(entity[0].ypos+12)%63,63))
-			for y=0,63,1 do
-				if bgblock[tostring(chunk)][x][y]%256 > 0 and chunk > entity[0].xpos/16-2 and chunk < entity[0].xpos/16+1 then 
-				if x+chunk*16 > entity[0].xpos-14 and x+chunk*16 < entity[0].xpos+13 and y>entity[0].ypos-9 and y<entity[0].ypos+12 then 
-					renderblock = renderblock + 1
-					i_x, i_y = block_getScreenCoordinates(chunk or -1,x or 0,y or -1)
-					disbatch:setColor(190,190,190)
-					disbatch:add(texture[(bgblock[tostring(chunk)][x][y])%256],i_x,i_y,0,__scale/16,__scale/16)
-				end
-				end
-			end 
-		end
+	render_y = __origin-(entity[0].ypos)*__scale-300
+	render_x = (entity[0].xpos)*__scale-400
+	love.graphics.draw(bgbatch,-render_x,-render_y)
+	for id,obj in pairs(entity) do
+		obj:render()
 	end
-	for chunk = math.max(math.floor(entity[0].xpos/16)-2,-chunkcount),math.min(math.floor(entity[0].xpos/16)+2,chunkcount),1 do 
-		for x = 0,15,1 do
-			--print(math.max(math.ceil(entity[0].ypos-12)%63,0),math.min(math.ceil(entity[0].ypos+12)%63,63))
-			for y=0,63,1 do
-				if block[tostring(chunk)][x][y]%256 > 0 and chunk > entity[0].xpos/16-2 and chunk < entity[0].xpos/16+1 then 
-				if x+chunk*16 > entity[0].xpos-14 and x+chunk*16 < entity[0].xpos+13 and y>entity[0].ypos-9 and y<entity[0].ypos+12 then 
-					renderblock = renderblock + 1
-					i_x, i_y = block_getScreenCoordinates(chunk or -1,x or 0,y or -1)
-					disbatch:setColor(255,255,255)
-					disbatch:add(texture[(block[tostring(chunk)][x][y])%256],i_x,i_y,0,__scale/16,__scale/16)
-				end
-				end
-			end 
-		end
-	end
-	love.graphics.draw(disbatch)
-	--disbatch:flush()
+	love.graphics.draw(disbatch,-render_x,-render_y)
+	love.graphics.print(collectgarbage("count")*1024,0,32)
 	local draw = nil
 	local col = nil
 	love.graphics.draw(terrain,texture[selectedblock],700,64,0,3)
-	love.graphics.print(love.timer.getFPS() .. " // " .. renderblock .. " // " .. gdt)
-	--love.graphics.print({render_x .. " " .. render_y},32,32)
-	for id,obj in pairs(entity) do
-		obj:render()
-	end	
-	--mouse debug
-	love.graphics.print(mouse_chunk .. " " .. mouse_x .. " " .. mouse_y,64,64)
-	
+	love.graphics.print(love.timer.getFPS() .. " // " .. gdt)
 	local cur_time = love.timer.getTime()
 	if next_time <= cur_time then
 		next_time = cur_time
 		return
 	end
 	love.timer.sleep(next_time - cur_time)
-	debug_draw()
 end
 
 function love.mousepressed( x, y, button, istouch )
+if mouse_y < 63 then
 	if button == 1 and not love.keyboard.isDown('lshift') then block[tostring(mouse_chunk)][mouse_x][mouse_y] = 0 end
 	if button == 1 and love.keyboard.isDown('lshift') then bgblock[tostring(mouse_chunk)][mouse_x][mouse_y] = 0 end
-	if button == 2 and love.keyboard.isDown('lshift') then bgblock[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock + 256 end
+	if button == 2 and love.keyboard.isDown('lshift') then bgblock[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock end
 if not is_intersecting_player() then
 	if button == 2 and not love.keyboard.isDown('lshift') then block[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock end
 end
+end
+graphics_update()
 end
 
 function love.wheelmoved(x, y)
@@ -353,8 +380,8 @@ end
 
 
 function love.update(dt)
-gdt = dt
-next_time = next_time + min_dt
+	gdt = dt
+	next_time = next_time + min_dt
 	--dt = math.min(dt, 1/60)
 	for id,obj in pairs(entity) do
 		obj:tick()
@@ -367,16 +394,5 @@ next_time = next_time + min_dt
 	if love.keyboard.isDown 'a' then entity[0].hspeed = -0.05 end
 	if love.keyboard.isDown 'd' then entity[0].hspeed = 0.05 end
 	entity[0].hspeed = entity[0].hspeed * 0.8
-	debug_dummy()
-	for chunk = math.max(math.floor(entity[0].xpos/16)-2,-chunkcount),math.min(math.floor(entity[0].xpos/16)+2,chunkcount),1 do 
-		if math.random() > 0.7 then
-			local rndx = math.floor(math.random(0,15))
-			local rndy = math.floor(math.random(0,63))
-			--print(chunk,rndx,rndy)
-			if block[tostring(chunk)][rndx][rndy] == 2 and block[tostring(chunk)][rndx][rndy+1] == 0
-			then block[tostring(chunk)][rndx][rndy] = 3 end
-			if block[tostring(chunk)][rndx][rndy] == 3 and block[tostring(chunk)][rndx][rndy+1] ~= 0 then block[tostring(chunk)][rndx][rndy] = 2 end
-
-			end
-	end
+	collectgarbage()
 end
