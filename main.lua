@@ -17,8 +17,14 @@ end
 function debug_draw() 
 --For use with debug.debug()
 end
-
-
+ec = 0
+function entity_spawn(etype,nx,ny)
+ec = ec + 1
+entity[ec] = {}
+setmetatable(entity[ec],{__index = etype})
+entity[ec].xpos = nx
+entity[ec].ypos = ny
+end
 
 function block_setBlockId(x,y,value,isbg)
 
@@ -84,25 +90,34 @@ function global_saveChunk(num)
 
 end
 
-function entityphysics(this)
 
+function entity_getScreenCoordinates(x,y)
+
+return x*__scale-render_x,__origin-(y-1)*__scale-render_y
+
+end
+
+
+function entityphysics(this)
+local xcol = 0
+local ycol = 0
 if this.ground == 0 then this.vspeed = this.vspeed - 0.005 end
 if this.vspeed < -1 then this.vspeed = -0.99 end
 
 if this.hspeed > 0 then
-if block_isSolid(this.xpos + this.hspeed + this.xhit,this.ypos+0.5) or block_isSolid(this.xpos + this.hspeed + this.xhit,this.ypos+1.5) then this.hspeed = 0 end
+if block_isSolid(this.xpos + this.hspeed + this.xhit,this.ypos+0.5) or block_isSolid(this.xpos + this.hspeed + this.xhit,this.ypos+1.5) then this.hspeed = 0 xcol = 1 end
 end
 
 if this.hspeed < 0 then
-if block_isSolid(this.xpos + this.hspeed - this.xhit,this.ypos+0.5) or block_isSolid(this.xpos + this.hspeed - this.xhit,this.ypos+1.5) then this.hspeed = 0 end
+if block_isSolid(this.xpos + this.hspeed - this.xhit,this.ypos+0.5) or block_isSolid(this.xpos + this.hspeed - this.xhit,this.ypos+1.5) then this.hspeed = 0 xcol = 1 end
 end
 
 if this.vspeed < 0 then
-if block_isSolid(this.xpos+this.xhit,this.ypos) or block_isSolid(this.xpos-this.xhit,this.ypos) then this.vspeed = 0 this.ground = 1 this.ypos = math.ceil(this.ypos) end
+if block_isSolid(this.xpos+this.xhit,this.ypos) or block_isSolid(this.xpos-this.xhit,this.ypos) then this.vspeed = 0 this.ground = 1 this.ypos = math.ceil(this.ypos) ycol = 1 end
 end
  
 if this.vspeed > 0 then
-if block_isSolid(this.xpos+this.xhit,this.ypos+2) or block_isSolid(this.xpos-this.xhit,this.ypos+2) then this.vspeed = 0 end
+if block_isSolid(this.xpos+this.xhit,this.ypos+2) or block_isSolid(this.xpos-this.xhit,this.ypos+2) then this.vspeed = 0 ycol = 1 end
 end
 
 if not block_isSolid(this.xpos + this.xhit,this.ypos) and not block_isSolid(this.xpos - this.xhit,this.ypos) then this.ground = 0 end
@@ -112,12 +127,12 @@ this.ypos = this.ypos + this.vspeed
 if this.hspeed > 0 and this.hspeed < 0.001 then this.hspeed = 0 end
 if this.hspeed < 0 and this.hspeed > -0.001 then this.hspeed = 0 end
 
+return xcol,ycol
 
 end
 
 
 function graphics_update()
-	print 'Update'
 	local localplayer = entity[0]
 	local renderblock = 0
 	local block = block
@@ -197,7 +212,43 @@ function player.render(this)
 	--print(offset_factor)
 	--print(facing)
 end 
+ 
+monster = {aim = 1, ai = 0, n = 0, facing = 1, xhit = 0.3 , yhit = 2, cdt = 0, ypos = 0, xpos = 0, vspeed = 0, hspeed = 0, health = 20, ground = 1}
+function monster.tick(this)
 
+if this.ai == 0 then 
+this.ai = math.random(260,620)
+this.aim = -this.aim
+end
+this.ai = this.ai - 1
+if math.abs(this.hspeed) < 0.04 then this.hspeed = this.hspeed + this.aim * 0.002 end
+xcol,ycol = entityphysics(this)
+if xcol == 1 and this.ground == 1 then this.vspeed = 0.12 this.ground = 0 end
+end
+steve = love.graphics.newImage("steve.png")
+steve:setFilter('nearest')
+function monster.render(this)
+	if this.hspeed > 0 then this.facing = 1 end
+	if this.hspeed < 0 then this.facing = -1 end
+	--print(this.xpos,oldxpos)
+	this.n = this.n + 0.04 + math.abs(this.hspeed)
+	handval = math.sin(handanim)/15 * this.facing
+	--if this.hspeed ~= 0 then handanim = -0.1 end
+	if math.abs(this.hspeed) < 0.01 then this.n = 0 end 
+	local p_x, p_y = entity_getScreenCoordinates(this.xpos,this.ypos+2)
+	--if p_x < 0 then p_x = p_x + 16*__scale end
+	
+	--if p_x < love.mouse.getX() then this.facing = 1 else this.facing = -1 end
+	love.graphics.draw(steve,playermodel.backarm,p_x+2,p_y+16,math.sin(-this.n)*(this.hspeed*20)-handval,64/__scale*this.facing,64/__scale,2,0)
+	love.graphics.draw(steve,playermodel.body,p_x+2,p_y,0,64/__scale*this.facing,64/__scale,2,-8)
+	headangle = 0
+	love.graphics.draw(steve,playermodel.head,p_x+2,p_y+16,headangle,64/__scale*this.facing,64/__scale,4,8)
+	love.graphics.draw(steve,playermodel.hat,p_x+2,p_y+16,headangle,(64/__scale+0.3)*this.facing,64/__scale+0.3,4,8)
+	love.graphics.draw(steve,playermodel.frontarm,p_x+2,p_y+16,math.sin(this.n)*(this.hspeed*20)+handval,64/__scale*this.facing,64/__scale,2,0)
+	love.graphics.draw(steve,playermodel.backleg,p_x+2,p_y+40,math.sin(this.n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
+	love.graphics.draw(steve,playermodel.frontleg,p_x+2,p_y+40,math.sin(-this.n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
+
+end
 
 
 -------------------------------------------------------------------------------------------------------------------------------
@@ -318,8 +369,8 @@ function love.load()
 			qq = qq + 1
 		end
 	end
-	disbatch = love.graphics.newSpriteBatch(terrain,1000,'dynamic')
-	bgbatch = love.graphics.newSpriteBatch(terrain,1000,'dynamic')
+	disbatch = love.graphics.newSpriteBatch(terrain,1500,'dynamic')
+	bgbatch = love.graphics.newSpriteBatch(terrain,1500,'dynamic')
 	bgbatch:setColor(190,190,190)
 	__scale = 32
 	__origin = 63 * __scale
@@ -373,6 +424,10 @@ function love.keypressed(key)
 	if key == 'c' then debug.debug() end
 	if key == 'r' then __generate() entity[0].ypos = 63 entity[0].ground = 0 end
 	if key == 'w' and entity[0].ground == 1 then entity[0].ypos = entity[0].ypos + 0.1 entity[0].ground = 0 entity[0].vspeed = 0.12 entity[0].cdt = gdt end
+	if key == 'g' then
+		entity_spawn(monster,entity[0].xpos,63)
+		print(entity[0].xpos)
+	end
 end
 
 
