@@ -236,6 +236,22 @@ function graphics_cursor()
 	love.mouse.setVisible(false)
 end
 
+function radian_ray(rx,ry,ang,dist)
+	local interrupts = 0
+	local xdir = math.cos(ang)
+	local ydir = math.sin(ang)
+	for i=0,dist,1 do
+		rx = rx-xdir
+		ry = ry+ydir
+		--print('Literal',math.floor(rx),math.floor(ry))
+		print('Chunk',math.floor(rx/16),math.floor(rx)%16,math.abs(math.floor(ry)))
+		print(block[tostring(math.floor(rx/16))][math.floor(rx)%16][math.abs(math.floor(ry))])
+		if block[tostring(math.floor(rx/16))][math.floor(rx)%16][math.abs(math.floor(ry))] ~= 0 then interrupts = interrupts + 1 end
+	end
+	return interrupts
+end
+
+
 --PLAYER CLASS-----------------------------------------------------------------------------------------------------------------
 oldxpos = 0
 oldypos = 0
@@ -254,21 +270,21 @@ function player.render(this)
 	handval = math.sin(handanim)/15 * this.facing
 	--if this.hspeed ~= 0 then handanim = -0.1 end
 	if math.abs(this.hspeed) < 0.01 then this.n = 0 end 
-	local p_x = 400-2
-	if p_x < love.mouse.getX() then this.facing = 1 else this.facing = -1 end
-	local p_y = 300-__scale - math.abs(math.sin(this.n)*2)
+	this.p_x = 400-2
+	if this.p_x < love.mouse.getX() then this.facing = 1 else this.facing = -1 end
+	this.p_y = 300-__scale - math.abs(math.sin(this.n)*2)
 	--love.graphics.rectangle("fill",400-2,300-__scale,4,__scale*2)
 	--love.graphics.print(this.hspeed .. " " .. this.vspeed .. " \n" .. this.xpos .. " " .. this.ypos,32,32)
 	ix,iy = block_getScreenCoordinates(this.xpos,this.ypos)
 	--offset_factor = mouse_x-32+mouse_chunk*16
-	love.graphics.draw(char_sprite,playermodel.backarm,p_x+2,p_y+16,math.sin(-this.n)*(this.hspeed*20)-handval,64/__scale*this.facing,64/__scale,2,0)
-	love.graphics.draw(char_sprite,playermodel.body,p_x+2,p_y,0,64/__scale*this.facing,64/__scale,2,-8)
-	if this.facing == 1 then headangle = math.atan2(love.mouse.getY()-(p_y+8),love.mouse.getX()-p_x) else headangle = math.atan2((p_y+8)-love.mouse.getY(),p_x-love.mouse.getX()) end 
-	love.graphics.draw(char_sprite,playermodel.head,p_x+2,p_y+16,headangle,64/__scale*this.facing,64/__scale,4,8)
-	love.graphics.draw(char_sprite,playermodel.hat,p_x+2,p_y+16,headangle,(64/__scale+0.3)*this.facing,64/__scale+0.3,4,8)
-	love.graphics.draw(char_sprite,playermodel.frontarm,p_x+2,p_y+16,math.sin(this.n)*(this.hspeed*20)+handval,64/__scale*this.facing,64/__scale,2,0)
-	love.graphics.draw(char_sprite,playermodel.backleg,p_x+2,p_y+40,math.sin(this.n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
-	love.graphics.draw(char_sprite,playermodel.frontleg,p_x+2,p_y+40,math.sin(-this.n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
+	love.graphics.draw(char_sprite,playermodel.backarm,this.p_x+2,this.p_y+16,math.sin(-this.n)*(this.hspeed*20)-handval,64/__scale*this.facing,64/__scale,2,0)
+	love.graphics.draw(char_sprite,playermodel.body,this.p_x+2,this.p_y,0,64/__scale*this.facing,64/__scale,2,-8)
+	if this.facing == 1 then headangle = math.atan2(love.mouse.getY()-(this.p_y+8),love.mouse.getX()-this.p_x) else headangle = math.atan2((this.p_y+8)-love.mouse.getY(),this.p_x-love.mouse.getX()) end 
+	love.graphics.draw(char_sprite,playermodel.head,this.p_x+2,this.p_y+16,headangle,64/__scale*this.facing,64/__scale,4,8)
+	love.graphics.draw(char_sprite,playermodel.hat,this.p_x+2,this.p_y+16,headangle,(64/__scale+0.3)*this.facing,64/__scale+0.3,4,8)
+	love.graphics.draw(char_sprite,playermodel.frontarm,this.p_x+2,this.p_y+16,math.sin(this.n)*(this.hspeed*20)+handval,64/__scale*this.facing,64/__scale,2,0)
+	love.graphics.draw(char_sprite,playermodel.backleg,this.p_x+2,this.p_y+40,math.sin(this.n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
+	love.graphics.draw(char_sprite,playermodel.frontleg,this.p_x+2,this.p_y+40,math.sin(-this.n)*(this.hspeed*20),64/__scale*this.facing,64/__scale,2,0)
 	
 	--print(offset_factor)
 	--print(facing)
@@ -315,7 +331,7 @@ end
 -------------------------------------------------------------------------------------------------------------------------------
 
 function __generate()
-chunkcount = 8
+__prep()
 --highseed = math.floor(os.time()%9999999999 / 100000)
 --lowseed = (os.time()%9999999999 / 100000)%math.floor(os.time()%9999999999/100000)*100000
 --rint(pseudoseed,os.time()%9999999999)
@@ -366,7 +382,29 @@ pseudoseed = os.time()%999999
 end
 
 
+function __prep()
+	block = {}
+	bgblock = {}
+	chunkcount = 16
+	for chunk = -chunkcount,chunkcount,1 do 
+		block[tostring(chunk)] = {}
+		for x = 0,15,1 do
+			block[tostring(chunk)][x] = {}
+			for y = 0,63,1 do
+				block[tostring(chunk)][x][y] = 0
+			end 
+		end
+		bgblock[tostring(chunk)] = {}
+		for x = 0,15,1 do
+			bgblock[tostring(chunk)][x] = {}
+			for y = 0,63,1 do
+				bgblock[tostring(chunk)][x][y] = 0
+			end 
+		end
+	end
 
+
+end
 
 
 
@@ -418,25 +456,7 @@ function love.load()
 	bgbatch:setColor(190,190,190)
 	__scale = 32
 	__origin = 63 * __scale
-	block = {}
-	bgblock = {}
-		chunkcount = 8
-for chunk = -chunkcount,chunkcount,1 do 
-		block[tostring(chunk)] = {}
-		for x = 0,15,1 do
-			block[tostring(chunk)][x] = {}
-			for y = 0,63,1 do
-				block[tostring(chunk)][x][y] = 0
-			end 
-		end
-		bgblock[tostring(chunk)] = {}
-		for x = 0,15,1 do
-			bgblock[tostring(chunk)][x] = {}
-			for y = 0,63,1 do
-				bgblock[tostring(chunk)][x][y] = 0
-			end 
-		end
-	end
+	__prep()
 	__height = {}
 	entity = {}
 	entity[0] = {}
@@ -532,6 +552,7 @@ end
 
 
 function love.keypressed(key)
+	if key == 'q' then print(radian_ray(entity[0].xpos,entity[0].ypos+2,math.atan2((entity[0].p_y+8)-love.mouse.getY(),entity[0].p_x-love.mouse.getX()),5)) end
 	if key == 'c' then debug.debug() end
 	if key == 'r' then __generate() entity[0].ypos = 63 entity[0].ground = 0 end
 	if key == 'w' and entity[0].ground == 1 then entity[0].ypos = entity[0].ypos + 0.1 entity[0].ground = 0 entity[0].vspeed = 0.12 entity[0].cdt = gdt end
