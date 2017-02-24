@@ -5,7 +5,7 @@ if value == 0.5 then return value end
 end
 
 function is_intersecting_player()
-if lit_mouse_x+mouse_chunk*16 > entity[0].xpos-0.7 and lit_mouse_x+mouse_chunk*16 < entity[0].xpos+0.7 and lit_mouse_y > entity[0].ypos and lit_mouse_y < entity[0].ypos+2 then return true end
+if lit_mouse_x+mouse_chunk*16 > entity[0].xpos-0.7 and lit_mouse_x+mouse_chunk*16 < entity[0].xpos+0.7 and lit_mouse_y > entity[0].ypos - 0.3 and lit_mouse_y < entity[0].ypos+2 then return true end
 end
 
 
@@ -84,10 +84,58 @@ end
 end
 
 
-function global_saveChunk(num)
+function global_saveChunk(num,dir)
+dir = dir or "saves"
+love.filesystem.remove("saves/chunk_" .. num)
+love.filesystem.remove("saves/bgchunk_" .. num)
+local column = ""
+	for x = 0,15,1 do
+		for y = 0,63,1 do
+			column = column .. block[tostring(num)][x][y] .. ", "
+		end 
+		column = column .. "\n"
+	end
+love.filesystem.append("saves/chunk_" .. num, column)
+love.filesystem.remove("saves/bg_chunk_" .. num)
+local column = ""
+	for x = 0,15,1 do
+		for y = 0,63,1 do
+			column = column .. bgblock[tostring(num)][x][y] .. ", "
+		end 
+		column = column .. "\n"
+	end
+love.filesystem.append("saves/bgchunk_" .. num, column)
+end
 
-	
-
+function global_loadChunk(num,dir)
+dir = dir or "saves"
+	x = 0
+	local linetable = {}
+	for line in love.filesystem.lines("saves/chunk_"..num) do
+		linetable[x] = line
+		x = x + 1
+	end 
+	for x = 0,15,1 do
+		y = 0
+		for b in string.gmatch(linetable[x],"%d+") do
+		block[tostring(num)][x][y] = tonumber(b)
+			y = y + 1
+		end 
+	end
+	x = 0
+	local linetable = {}
+	for line in love.filesystem.lines("saves/bgchunk_"..num) do
+		linetable[x] = line
+		x = x + 1
+	end 
+	for x = 0,15,1 do
+		y = 0
+		for b in string.gmatch(linetable[x],"%d+") do
+		
+		bgblock[tostring(num)][x][y] = tonumber(b)
+			y = y + 1
+		end 
+	end
 end
 
 
@@ -97,12 +145,20 @@ return x*__scale-render_x,__origin-(y-1)*__scale-render_y
 
 end
 
+function tablelength(T)
+	local count = 0
+	for _ in pairs(T) do count = count + 1 end
+	return count
+end
 
 function entityphysics(this)
+
+
+
 local xcol = 0
 local ycol = 0
 if this.ground == 0 then this.vspeed = this.vspeed - 0.005 end
-if this.vspeed < -1 then this.vspeed = -0.99 end
+if this.vspeed < -0.8 then this.vspeed = -0.8 end
 
 if this.hspeed > 0 then
 if block_isSolid(this.xpos + this.hspeed + this.xhit,this.ypos+0.5) or block_isSolid(this.xpos + this.hspeed + this.xhit,this.ypos+1.5) then this.hspeed = 0 xcol = 1 end
@@ -111,6 +167,13 @@ end
 if this.hspeed < 0 then
 if block_isSolid(this.xpos + this.hspeed - this.xhit,this.ypos+0.5) or block_isSolid(this.xpos + this.hspeed - this.xhit,this.ypos+1.5) then this.hspeed = 0 xcol = 1 end
 end
+
+this.xpos = this.xpos + this.hspeed
+this.ypos = this.ypos + this.vspeed 
+if this.hspeed > 0 and this.hspeed < 0.001 then this.hspeed = 0 end
+if this.hspeed < 0 and this.hspeed > -0.001 then this.hspeed = 0 end
+
+
 
 if this.vspeed < 0 then
 if block_isSolid(this.xpos+this.xhit,this.ypos) or block_isSolid(this.xpos-this.xhit,this.ypos) then this.vspeed = 0 this.ground = 1 this.ypos = math.ceil(this.ypos) ycol = 1 end
@@ -121,11 +184,6 @@ if block_isSolid(this.xpos+this.xhit,this.ypos+2) or block_isSolid(this.xpos-thi
 end
 
 if not block_isSolid(this.xpos + this.xhit,this.ypos) and not block_isSolid(this.xpos - this.xhit,this.ypos) then this.ground = 0 end
-
-this.xpos = this.xpos + this.hspeed
-this.ypos = this.ypos + this.vspeed 
-if this.hspeed > 0 and this.hspeed < 0.001 then this.hspeed = 0 end
-if this.hspeed < 0 and this.hspeed > -0.001 then this.hspeed = 0 end
 
 return xcol,ycol
 
@@ -172,8 +230,11 @@ function graphics_update()
 
 
 end
-
-
+function graphics_cursor()
+	love.graphics.rectangle("fill",love.mouse.getX()-8,love.mouse.getY(),16,2)
+	love.graphics.rectangle("fill",love.mouse.getX()-1,love.mouse.getY()-7,2,16)
+	love.mouse.setVisible(false)
+end
 
 --PLAYER CLASS-----------------------------------------------------------------------------------------------------------------
 oldxpos = 0
@@ -188,7 +249,7 @@ handanim = 0
 function player.render(this)
 	if this.xpos + 3 < oldxpos or this.xpos - 3 > oldxpos or this.ypos + 3 < oldypos or this.ypos - 3 > oldypos then graphics_update() oldxpos = this.xpos oldypos = this.ypos end
 	--print(this.xpos,oldxpos)
-	this.n = this.n + 0.04 + math.abs(this.hspeed)
+	if not pause then this.n = this.n + 0.04 + math.abs(this.hspeed) end
 	handanim = handanim + 0.007
 	handval = math.sin(handanim)/15 * this.facing
 	--if this.hspeed ~= 0 then handanim = -0.1 end
@@ -202,7 +263,7 @@ function player.render(this)
 	--offset_factor = mouse_x-32+mouse_chunk*16
 	love.graphics.draw(char_sprite,playermodel.backarm,p_x+2,p_y+16,math.sin(-this.n)*(this.hspeed*20)-handval,64/__scale*this.facing,64/__scale,2,0)
 	love.graphics.draw(char_sprite,playermodel.body,p_x+2,p_y,0,64/__scale*this.facing,64/__scale,2,-8)
-	if this.facing == 1 then headangle = math.atan2(love.mouse.getY()-p_y,love.mouse.getX()-p_x) else headangle = math.atan2(p_y-love.mouse.getY(),p_x-love.mouse.getX()) end 
+	if this.facing == 1 then headangle = math.atan2(love.mouse.getY()-(p_y+8),love.mouse.getX()-p_x) else headangle = math.atan2((p_y+8)-love.mouse.getY(),p_x-love.mouse.getX()) end 
 	love.graphics.draw(char_sprite,playermodel.head,p_x+2,p_y+16,headangle,64/__scale*this.facing,64/__scale,4,8)
 	love.graphics.draw(char_sprite,playermodel.hat,p_x+2,p_y+16,headangle,(64/__scale+0.3)*this.facing,64/__scale+0.3,4,8)
 	love.graphics.draw(char_sprite,playermodel.frontarm,p_x+2,p_y+16,math.sin(this.n)*(this.hspeed*20)+handval,64/__scale*this.facing,64/__scale,2,0)
@@ -231,7 +292,7 @@ function monster.render(this)
 	if this.hspeed > 0 then this.facing = 1 end
 	if this.hspeed < 0 then this.facing = -1 end
 	--print(this.xpos,oldxpos)
-	this.n = this.n + 0.04 + math.abs(this.hspeed)
+	if not pause then this.n = this.n + 0.04 + math.abs(this.hspeed) end
 	handval = math.sin(handanim)/15 * this.facing
 	--if this.hspeed ~= 0 then handanim = -0.1 end
 	if math.abs(this.hspeed) < 0.01 then this.n = 0 end 
@@ -262,23 +323,7 @@ pseudoseed = os.time()%999999
 
 --pseudoseed = 0
 --We're gonna have 16x64 chunks for now. Let's get generating. Raising.
-bgblock = {}
-for chunk = -chunkcount,chunkcount,1 do 
-		block[tostring(chunk)] = {}
-		for x = 0,15,1 do
-			block[tostring(chunk)][x] = {}
-			for y = 0,63,1 do
-				block[tostring(chunk)][x][y] = 0
-			end 
-		end
-		bgblock[tostring(chunk)] = {}
-		for x = 0,15,1 do
-			bgblock[tostring(chunk)][x] = {}
-			for y = 0,63,1 do
-				bgblock[tostring(chunk)][x][y] = 0
-			end 
-		end
-	end
+
 	for x = -chunkcount*16,chunkcount*16-1,1 do
 		n = love.math.noise(pseudoseed,x/30)*10
 		m = love.math.noise(pseudoseed,x/70)*10
@@ -293,7 +338,6 @@ for chunk = -chunkcount,chunkcount,1 do
 			for y = 0,63,1 do
 				if block[tostring(chunk)][x][y] == 3 then 
 				m = 3+math.floor(love.math.noise(pseudoseed,x/3)*2)
-				print(m)
 					for n = y-1,y-m,-1 do
 						block[tostring(chunk)][x][n] = 2
 						bgblock[tostring(chunk)][x][n] = 2
@@ -337,7 +381,7 @@ function love.load()
 	http = require("socket.http")
 	local b, c, h = http.request("http://mcapi.ca/rawskin/MetoolDaddy")
 	love.filesystem.write("skin.png", b)
-	font = love.graphics.newFont("minecraft.ttf",8)
+	font = love.graphics.newFont("minecraft.ttf",16)
 	love.graphics.setFont(font)
 	love.graphics.setBackgroundColor(0,190,255)
 	selectedblock = 1
@@ -375,12 +419,43 @@ function love.load()
 	__scale = 32
 	__origin = 63 * __scale
 	block = {}
+	bgblock = {}
+		chunkcount = 8
+for chunk = -chunkcount,chunkcount,1 do 
+		block[tostring(chunk)] = {}
+		for x = 0,15,1 do
+			block[tostring(chunk)][x] = {}
+			for y = 0,63,1 do
+				block[tostring(chunk)][x][y] = 0
+			end 
+		end
+		bgblock[tostring(chunk)] = {}
+		for x = 0,15,1 do
+			bgblock[tostring(chunk)][x] = {}
+			for y = 0,63,1 do
+				bgblock[tostring(chunk)][x][y] = 0
+			end 
+		end
+	end
 	__height = {}
-	__generate()
 	entity = {}
 	entity[0] = {}
 	setmetatable(entity[0],{__index = player})
+	if not love.filesystem.exists("saves/") then love.filesystem.createDirectory("saves") print "No save directory detected. Created." __generate() else
+
+	for c = -chunkcount,chunkcount,1 do
+		global_loadChunk(c)
+	end
+	end
+	master=socket.tcp()
+	print(master:bind("*",25564))
 end
+
+
+
+
+
+
 
 function love.draw()
 	render_y = __origin-(entity[0].ypos)*__scale-300
@@ -394,25 +469,61 @@ function love.draw()
 	local draw = nil
 	local col = nil
 	love.graphics.draw(terrain,texture[selectedblock],700,64,0,3)
-	love.graphics.print(love.timer.getFPS() .. " // " .. gdt)
+	love.graphics.setColor(128,128,128,255)
+	love.graphics.print(love.timer.getFPS() .. " // " .. gdt,4,4)
+	love.graphics.setColor(255,255,255,255)
+	love.graphics.print(love.timer.getFPS() .. " // " .. gdt,2,2)
 	local cur_time = love.timer.getTime()
+	love.timer.sleep(next_time - cur_time)
+		love.graphics.setColor(0,0,0,64)
+		--love.graphics.rectangle("fill",0,0,800,600)
+		love.graphics.setColor(255,255,255,255)
+	if pmenu then
+		for name,func in pairs(buttons) do
+			tl = tablelength(buttons)
+			if love.mouse.getX() > 400 and love.mouse.getX() < 400+256 and love.mouse.getY() > 300 - (tl * 64) / 2 and love.mouse.getY() < 300 - (tl * 64) - 64 / 2 then love.graphics.setColor(200,200,200) else love.graphics.setColor(0,0,0) end
+			love.graphics.rectangle("fill",400,300,256,32)
+			love.graphics.setColor(128,128,128)
+			love.graphics.rectangle("fill",402,302,252,28)
+			love.graphics.setColor(64,64,64,255)
+			love.graphics.printf(name,402,310,256,"center")
+			love.graphics.setColor(255,255,255,255)
+			love.graphics.printf(name,400,308,256,"center")
+		end
+
+	end
+	graphics_cursor()
 	if next_time <= cur_time then
 		next_time = cur_time
 		return
 	end
-	love.timer.sleep(next_time - cur_time)
 end
+buttons = {}
+buttons["Test"] = function ()
 
+print 'Clicked'
+
+
+end
 function love.mousepressed( x, y, button, istouch )
-if mouse_y < 63 then
-	if button == 1 and not love.keyboard.isDown('lshift') then block[tostring(mouse_chunk)][mouse_x][mouse_y] = 0 end
-	if button == 1 and love.keyboard.isDown('lshift') then bgblock[tostring(mouse_chunk)][mouse_x][mouse_y] = 0 end
-	if button == 2 and love.keyboard.isDown('lshift') then bgblock[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock end
-if not is_intersecting_player() then
-	if button == 2 and not love.keyboard.isDown('lshift') then block[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock end
-end
-end
-graphics_update()
+	if not pause then 
+		if mouse_y < 63 then
+			if button == 1 and not love.keyboard.isDown('lshift') then block[tostring(mouse_chunk)][mouse_x][mouse_y] = 0 end
+			if button == 1 and love.keyboard.isDown('lshift') then bgblock[tostring(mouse_chunk)][mouse_x][mouse_y] = 0 end
+			if button == 2 and love.keyboard.isDown('lshift') then bgblock[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock end
+		if not is_intersecting_player() then
+			if button == 2 and not love.keyboard.isDown('lshift') then block[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock end
+		end
+		end
+		graphics_update()
+		oldxpos = entity[0].xpos
+		oldypos = entity[0].ypos
+	end --of gameplay mode
+	if pause then
+		
+		
+		
+	end
 end
 
 function love.wheelmoved(x, y)
@@ -435,19 +546,41 @@ end
 
 
 function love.update(dt)
-	gdt = dt
-	next_time = next_time + min_dt
-	--dt = math.min(dt, 1/60)
-	for id,obj in pairs(entity) do
-		obj:tick()
-	end	
-	mouse_chunk = math.floor(math.floor((love.mouse.getX())/__scale+render_x/__scale)/16)
-	mouse_x = math.floor((love.mouse.getX())/__scale+render_x/__scale)%16
-	lit_mouse_x = (love.mouse.getX()/__scale+render_x/__scale)%16
-	mouse_y = math.ceil(math.abs((love.mouse.getY())/__scale+render_y/__scale-64))
-	lit_mouse_y = math.abs((love.mouse.getY())/__scale+render_y/__scale-64)
-	if love.keyboard.isDown 'a' then entity[0].hspeed = -0.05 end
-	if love.keyboard.isDown 'd' then entity[0].hspeed = 0.05 end
-	entity[0].hspeed = entity[0].hspeed * 0.8
-	collectgarbage()
+gdt = dt
+next_time = next_time + min_dt
+	if not pause or multiplayer then
+		--dt = math.min(dt, 1/60)
+		for id,obj in pairs(entity) do
+			obj:tick()
+		end	
+		mouse_chunk = math.floor(math.floor((love.mouse.getX())/__scale+render_x/__scale)/16)
+		mouse_x = math.floor((love.mouse.getX())/__scale+render_x/__scale)%16
+		lit_mouse_x = (love.mouse.getX()/__scale+render_x/__scale)%16
+		mouse_y = math.ceil(math.abs((love.mouse.getY())/__scale+render_y/__scale-64))
+		lit_mouse_y = math.abs((love.mouse.getY())/__scale+render_y/__scale-64)
+		if love.keyboard.isDown 'a' then entity[0].hspeed = -0.05 end
+		if love.keyboard.isDown 'd' then entity[0].hspeed = 0.05 end
+		entity[0].hspeed = entity[0].hspeed * 0.8
+		
+	end
+collectgarbage()
+if isserver then
+
+l,e = master:receive()
+print(l)
+
+end
+end
+
+function love.quit()
+	print 'See you next time!'
+ 	for c = -chunkcount,chunkcount,1 do
+		global_saveChunk(c)
+	end
+end
+
+function becomeserver()
+	master:listen(1)
+	isserver = 1
+	master:settimeout(0,"b")
 end
