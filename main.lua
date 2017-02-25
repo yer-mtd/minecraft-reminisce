@@ -106,7 +106,6 @@ local column = ""
 	end
 love.filesystem.append("saves/bgchunk_" .. num, column)
 end
-
 function global_loadChunk(num,dir)
 dir = dir or "saves"
 	x = 0
@@ -205,8 +204,13 @@ function graphics_update()
 					renderblock = renderblock + 1
 					local i_x, i_y = block_getScreenCoordinates(chunk or -1,x or 0,y or -1)
 					i_x = i_x + render_x
-					i_y = i_y + render_y
-					bgbatch:add(texture[(bgblock[tostring(chunk)][x][y])],i_x,i_y,0,__scale/16,__scale/16)
+					i_y = i_y + render_y - 8
+					if bgblock[tostring(chunk)][x][y+1] == 0 then
+					bgbatch:setColor(255,255,255)
+					if bgblock[tostring(chunk)][x][y] == 3 then bgbatch:add(texture[0],i_x,i_y-__scale/4+4,0,__scale/16,__scale/16/4) else bgbatch:add(texture[(bgblock[tostring(chunk)][x][y])],i_x,i_y-__scale/4+4,0,__scale/16,__scale/16/4) end
+					end
+					bgbatch:setColor(178,178,178)
+					bgbatch:add(texture[(bgblock[tostring(chunk)][x][y])],i_x,i_y+4,0,__scale/16,__scale/16)
 				end
 				end
 			end 
@@ -221,7 +225,12 @@ function graphics_update()
 					local i_x, i_y = block_getScreenCoordinates(chunk or -1,x or 0,y or -1)
 					i_x = i_x + render_x
 					i_y = i_y + render_y
-					disbatch:add(texture[(block[tostring(chunk)][x][y])],i_x,i_y,0,__scale/16,__scale/16)
+					if block[tostring(chunk)][x][y+1] == 0 then
+					disbatch:setColor(255,255,255)
+					if block[tostring(chunk)][x][y] == 3 then disbatch:add(texture[0],i_x,i_y-__scale/4+4,0,__scale/16,__scale/16/4) else disbatch:add(texture[(block[tostring(chunk)][x][y])],i_x,i_y-__scale/4+4,0,__scale/16,__scale/16/4) end
+					end
+					disbatch:setColor(210,210,210)
+					disbatch:add(texture[(block[tostring(chunk)][x][y])],i_x,i_y+4,0,__scale/16,__scale/16)
 				end
 				end
 			end 
@@ -236,20 +245,31 @@ function graphics_cursor()
 	love.mouse.setVisible(false)
 end
 
-function radian_ray(rx,ry,ang,dist)
-	local interrupts = 0
+function radian_ray(rx,ry,ang,dist,maxint,func)
+	interrupts = 0
+	maxint = maxint or 99
 	local xdir = math.cos(ang)
 	local ydir = math.sin(ang)
 	for i=0,dist,1 do
 		rx = rx-xdir
 		ry = ry+ydir
 		--print('Literal',math.floor(rx),math.floor(ry))
-		print('Chunk',math.floor(rx/16),math.floor(rx)%16,math.abs(math.floor(ry)))
-		print(block[tostring(math.floor(rx/16))][math.floor(rx)%16][math.abs(math.floor(ry))])
+		--print('Chunk',math.floor(rx/16),math.floor(rx)%16,math.abs(math.floor(ry)))
+		--print(block[tostring(math.floor(rx/16))][math.floor(rx)%16][math.abs(math.floor(ry))])
 		if block[tostring(math.floor(rx/16))][math.floor(rx)%16][math.abs(math.floor(ry))] ~= 0 then interrupts = interrupts + 1 end
+		if func then func(tostring(math.floor(rx/16)),math.floor(rx)%16,math.abs(math.floor(ry))) end
 	end
 	return interrupts
 end
+
+function explosion(x,y,radius)
+print(math.random(math.pi*2))
+for i=0,64,1 do
+radian_ray(entity[0].xpos,entity[0].ypos+2,math.random(math.pi*2)+math.random(),math.random(1,5),5,function (q,w,e) if interrupts < 3 then block[q][w][e] = 0 else return 1 end end)
+end
+graphics_update()
+end
+
 
 
 --PLAYER CLASS-----------------------------------------------------------------------------------------------------------------
@@ -453,7 +473,6 @@ function love.load()
 	end
 	disbatch = love.graphics.newSpriteBatch(terrain,1500,'dynamic')
 	bgbatch = love.graphics.newSpriteBatch(terrain,1500,'dynamic')
-	bgbatch:setColor(190,190,190)
 	__scale = 32
 	__origin = 63 * __scale
 	__prep()
@@ -469,6 +488,7 @@ function love.load()
 	end
 	master=socket.tcp()
 	print(master:bind("*",25564))
+	skygrad = love.graphics.newImage("sky.png")
 end
 
 
@@ -478,13 +498,14 @@ end
 
 
 function love.draw()
+	love.graphics.draw(skygrad)
 	render_y = __origin-(entity[0].ypos)*__scale-300
 	render_x = (entity[0].xpos)*__scale-400
 	love.graphics.draw(bgbatch,-render_x,-render_y)
+	love.graphics.draw(disbatch,-render_x,-render_y)
 	for id,obj in pairs(entity) do
 		obj:render()
 	end
-	love.graphics.draw(disbatch,-render_x,-render_y)
 	love.graphics.print(collectgarbage("count")*1024,0,32)
 	local draw = nil
 	local col = nil
@@ -552,7 +573,7 @@ end
 
 
 function love.keypressed(key)
-	if key == 'q' then print(radian_ray(entity[0].xpos,entity[0].ypos+2,math.atan2((entity[0].p_y+8)-love.mouse.getY(),entity[0].p_x-love.mouse.getX()),5)) end
+	if key == 'q' then explosion(entity[0].xpos,entity[0].ypos,5) end
 	if key == 'c' then debug.debug() end
 	if key == 'r' then __generate() entity[0].ypos = 63 entity[0].ground = 0 end
 	if key == 'w' and entity[0].ground == 1 then entity[0].ypos = entity[0].ypos + 0.1 entity[0].ground = 0 entity[0].vspeed = 0.12 entity[0].cdt = gdt end
@@ -587,16 +608,16 @@ next_time = next_time + min_dt
 collectgarbage()
 if isserver then
 
-l,e = master:receive()
-print(l)
 
 end
 end
 
 function love.quit()
+	love.window.close( )
 	print 'See you next time!'
  	for c = -chunkcount,chunkcount,1 do
 		global_saveChunk(c)
+		io.write(".")
 	end
 end
 
