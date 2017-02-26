@@ -44,14 +44,17 @@ end
 
 end
 
-function block_getBlockId(x,y)
+function block_getBlockId(x,y,bg)
 
 
 
 local target_chunk = tostring(math.floor(x/16))
 local rel_x = (math.floor(x)%16)
 local rel_y = math.floor(y)
-if rel_y < 63 or rel_y > 1 then return block[target_chunk][rel_x][rel_y] end
+if rel_y < 63 or rel_y > 1 then 
+if not bg then return block[target_chunk][rel_x][rel_y] end
+if bg then return bgblock[target_chunk][rel_x][rel_y] end
+end
 
 
 
@@ -73,9 +76,9 @@ end
 
 block_solidLookupTable = {1,2,3,4,5,6,7,8}
 
-function block_isSolid(x,y)
+function block_isSolid(x,y,bg)
 
-local id = block_getBlockId(x or 0,math.ceil(y or 0))
+local id = block_getBlockId(math.floor(x) or 0,math.ceil(y or 0),bg)
 for key,value in pairs(block_solidLookupTable) do
 	if id == value then return true end
 end
@@ -110,7 +113,7 @@ function global_loadChunk(num,dir)
 dir = dir or "saves"
 	x = 0
 	local linetable = {}
-	for line in love.filesystem.lines("saves/chunk_"..num) do
+	for line in assert(love.filesystem.lines("saves/chunk_"..num)) do
 		linetable[x] = line
 		x = x + 1
 	end 
@@ -123,7 +126,7 @@ dir = dir or "saves"
 	end
 	x = 0
 	local linetable = {}
-	for line in love.filesystem.lines("saves/bgchunk_"..num) do
+	for line in assert(love.filesystem.lines("saves/bgchunk_"..num)) do
 		linetable[x] = line
 		x = x + 1
 	end 
@@ -143,6 +146,16 @@ function entity_getScreenCoordinates(x,y)
 return x*__scale-render_x,__origin-(y-1)*__scale-render_y
 
 end
+function entity_castShadow(this,x,y,bg)
+t,ty = block_getLowerBlock(x,y,bg)
+qx,qy = entity_getScreenCoordinates(x,y-ty)
+qy = qy + this.vshift
+love.graphics.setColor(0,0,0,255-ty*50)
+love.graphics.ellipse("fill",qx,qy,8,4)
+love.graphics.setColor(255,255,255,255)
+love.graphics.print(love.mouse.getX() .. " " .. love.mouse.getY() .. " " .. qx .. " " .. qy,64,64)
+end
+
 
 function tablelength(T)
 	local count = 0
@@ -160,11 +173,11 @@ if this.ground == 0 then this.vspeed = this.vspeed - 0.005 end
 if this.vspeed < -0.8 then this.vspeed = -0.8 end
 
 if this.hspeed > 0 then
-if block_isSolid(this.xpos + this.hspeed + this.xhit,this.ypos+0.5) or block_isSolid(this.xpos + this.hspeed + this.xhit,this.ypos+1.5) then this.hspeed = 0 xcol = 1 end
+if block_isSolid(this.xpos + this.hspeed + this.xhit,this.ypos+0.5,this.bg) or block_isSolid(this.xpos + this.hspeed + this.xhit,this.ypos+1.5,this.bg) then this.hspeed = 0 xcol = 1 end
 end
 
 if this.hspeed < 0 then
-if block_isSolid(this.xpos + this.hspeed - this.xhit,this.ypos+0.5) or block_isSolid(this.xpos + this.hspeed - this.xhit,this.ypos+1.5) then this.hspeed = 0 xcol = 1 end
+if block_isSolid(this.xpos + this.hspeed - this.xhit,this.ypos+0.5,this.bg) or block_isSolid(this.xpos + this.hspeed - this.xhit,this.ypos+1.5,this.bg) then this.hspeed = 0 xcol = 1 end
 end
 
 this.xpos = this.xpos + this.hspeed
@@ -175,19 +188,23 @@ if this.hspeed < 0 and this.hspeed > -0.001 then this.hspeed = 0 end
 
 
 if this.vspeed < 0 then
-if block_isSolid(this.xpos+this.xhit,this.ypos) or block_isSolid(this.xpos-this.xhit,this.ypos) then this.vspeed = 0 this.ground = 1 this.ypos = math.ceil(this.ypos) ycol = 1 end
+if block_isSolid(this.xpos+this.xhit,this.ypos,this.bg) or block_isSolid(this.xpos-this.xhit,this.ypos,this.bg) then this.vspeed = 0 this.ground = 1 this.ypos = math.ceil(this.ypos) ycol = 1 end
 end
  
 if this.vspeed > 0 then
-if block_isSolid(this.xpos+this.xhit,this.ypos+2) or block_isSolid(this.xpos-this.xhit,this.ypos+2) then this.vspeed = 0 ycol = 1 end
+if block_isSolid(this.xpos+this.xhit,this.ypos+2,this.bg) or block_isSolid(this.xpos-this.xhit,this.ypos+2,this.bg) then this.vspeed = 0 ycol = 1 end
 end
 
-if not block_isSolid(this.xpos + this.xhit,this.ypos) and not block_isSolid(this.xpos - this.xhit,this.ypos) then this.ground = 0 end
+if not block_isSolid(this.xpos + this.xhit,this.ypos,this.bg) and not block_isSolid(this.xpos - this.xhit,this.ypos,this.bg) then this.ground = 0 end
 
 return xcol,ycol
 
 end
 
+--Block top textures are listed here
+btop = {}
+btop[3] = 0
+btop[8] = 9
 
 function graphics_update()
 	local localplayer = entity[0]
@@ -195,49 +212,40 @@ function graphics_update()
 	local block = block
 	bgbatch:clear()
 	disbatch:clear()
+	ffacebatch:clear()
 	for chunk = math.max(math.floor(localplayer.xpos/16)-2,-chunkcount),math.min(math.floor(localplayer.xpos/16)+2,chunkcount),1 do 
 		for x = 0,15,1 do
 			for y=0,63,1 do
-				if bgblock[tostring(chunk)][x][y] > 0 and chunk > localplayer.xpos/16-2 and chunk < localplayer.xpos/16+1 then 
 				--if x+chunk*16 > entity[0].xpos-14 and x+chunk*16 < entity[0].xpos+13 and y>entity[0].ypos-9 and y<entity[0].ypos+12 then 
 				if x+chunk*16 > localplayer.xpos-17 and x+chunk*16 < localplayer.xpos+16 and y>localplayer.ypos-17 and y<localplayer.ypos+16 then 
 					renderblock = renderblock + 1
+				if bgblock[tostring(chunk)][x][y] > 0 and chunk > localplayer.xpos/16-2 and chunk < localplayer.xpos/16+1 then 
 					local i_x, i_y = block_getScreenCoordinates(chunk or -1,x or 0,y or -1)
 					i_x = i_x + render_x
 					i_y = i_y + render_y - 8
 					if bgblock[tostring(chunk)][x][y+1] == 0 then
-					bgbatch:setColor(255,255,255)
-					if bgblock[tostring(chunk)][x][y] == 3 then bgbatch:add(texture[0],i_x,i_y-__scale/4+4,0,__scale/16,__scale/16/4) else bgbatch:add(texture[(bgblock[tostring(chunk)][x][y])],i_x,i_y-__scale/4+4,0,__scale/16,__scale/16/4) end
+					if block[tostring(chunk)][x][y] ~= 0 then bgbatch:setColor(255,255,255) else bgbatch:setColor(200,200,200) end
+					bgbatch:add(texture[btop[bgblock[tostring(chunk)][x][y]] or bgblock[tostring(chunk)][x][y]],i_x,i_y-__scale/4+4,0,__scale/16,__scale/16/4)
 					end
 					bgbatch:setColor(178,178,178)
 					bgbatch:add(texture[(bgblock[tostring(chunk)][x][y])],i_x,i_y+4,0,__scale/16,__scale/16)
 				end
-				end
-			end 
-		end
-	end	
-	for chunk = math.max(math.floor(localplayer.xpos/16)-2,-chunkcount),math.min(math.floor(localplayer.xpos/16)+2,chunkcount),1 do 
-		for x = 0,15,1 do
-			for y=0,63,1 do
+					-----
 				if block[tostring(chunk)][x][y]> 0 and chunk > localplayer.xpos/16-2 and chunk < localplayer.xpos/16+1 then 
-				if x+chunk*16 > localplayer.xpos-17 and x+chunk*16 < localplayer.xpos+16 and y>localplayer.ypos-17 and y<localplayer.ypos+16 then 
-					renderblock = renderblock + 1
 					local i_x, i_y = block_getScreenCoordinates(chunk or -1,x or 0,y or -1)
 					i_x = i_x + render_x
 					i_y = i_y + render_y
 					if block[tostring(chunk)][x][y+1] == 0 then
 					disbatch:setColor(255,255,255)
-					if block[tostring(chunk)][x][y] == 3 then disbatch:add(texture[0],i_x,i_y-__scale/4+4,0,__scale/16,__scale/16/4) else disbatch:add(texture[(block[tostring(chunk)][x][y])],i_x,i_y-__scale/4+4,0,__scale/16,__scale/16/4) end
+					disbatch:add(texture[btop[block[tostring(chunk)][x][y]] or block[tostring(chunk)][x][y]],i_x,i_y-__scale/4+4,0,__scale/16,__scale/16/4)
 					end
-					disbatch:setColor(210,210,210)
-					disbatch:add(texture[(block[tostring(chunk)][x][y])],i_x,i_y+4,0,__scale/16,__scale/16)
+					ffacebatch:setColor(210,210,210)
+					ffacebatch:add(texture[(block[tostring(chunk)][x][y])],i_x,i_y+4,0,__scale/16,__scale/16)
 				end
 				end
 			end 
 		end
-	end
-
-
+	end	
 end
 function graphics_cursor()
 	love.graphics.rectangle("fill",love.mouse.getX()-8,love.mouse.getY(),16,2)
@@ -270,14 +278,27 @@ end
 graphics_update()
 end
 
+function block_getLowerBlock(x,y,bg)
+local sy = y
+repeat 
+sy = sy - 1
+until block_getBlockId(x,sy,bg) ~= 0
+--print(y,sy)
+return block_getBlockId(x,sy,bg), y - math.floor(sy)
 
+
+end
 
 --PLAYER CLASS-----------------------------------------------------------------------------------------------------------------
 oldxpos = 0
 oldypos = 0
-player = {n = 0, facing = 0, xhit = 0.3 , yhit = 2, cdt = 0, ypos = 64, xpos = 0, vspeed = 0, hspeed = 0, health = 20, ground = 1}
+player = {vshift = 0, n = 0, facing = 0, xhit = 0.3 , yhit = 2, cdt = 0, ypos = 64, xpos = 0, vspeed = 0, hspeed = 0, health = 20, ground = 1}
 function player.tick(this)
 
+if love.keyboard.isDown('lshift') and not (block_isSolid(math.floor(this.xpos),this.ypos+1.5,1) or block_isSolid(math.floor(this.xpos),this.ypos+0.5,1)) then
+this.bg = true end
+if not love.keyboard.isDown('lshift') and not (block_isSolid(math.floor(this.xpos),this.ypos+1.5) or block_isSolid(math.floor(this.xpos),this.ypos+0.5)) then
+this.bg = false end
 entityphysics(this)
 
 end 
@@ -292,10 +313,12 @@ function player.render(this)
 	if math.abs(this.hspeed) < 0.01 then this.n = 0 end 
 	this.p_x = 400-2
 	if this.p_x < love.mouse.getX() then this.facing = 1 else this.facing = -1 end
-	this.p_y = 300-__scale - math.abs(math.sin(this.n)*2)
+	this.p_y = 300-__scale - math.abs(math.sin(this.n)*2) + this.vshift
+	if this.bg and this.vshift > -8 then this.vshift = this.vshift - 1 end
+	if this.vshift < 0 and not this.bg then this.vshift = this.vshift + 1 end
 	--love.graphics.rectangle("fill",400-2,300-__scale,4,__scale*2)
 	--love.graphics.print(this.hspeed .. " " .. this.vspeed .. " \n" .. this.xpos .. " " .. this.ypos,32,32)
-	ix,iy = block_getScreenCoordinates(this.xpos,this.ypos)
+	ix,iy = block_getScreenCoordinates(this.xpos+2,this.ypos)
 	--offset_factor = mouse_x-32+mouse_chunk*16
 	love.graphics.draw(char_sprite,playermodel.backarm,this.p_x+2,this.p_y+16,math.sin(-this.n)*(this.hspeed*20)-handval,64/__scale*this.facing,64/__scale,2,0)
 	love.graphics.draw(char_sprite,playermodel.body,this.p_x+2,this.p_y,0,64/__scale*this.facing,64/__scale,2,-8)
@@ -473,6 +496,7 @@ function love.load()
 	end
 	disbatch = love.graphics.newSpriteBatch(terrain,1500,'dynamic')
 	bgbatch = love.graphics.newSpriteBatch(terrain,1500,'dynamic')
+	ffacebatch = love.graphics.newSpriteBatch(terrain,1500,'dynamic')
 	__scale = 32
 	__origin = 63 * __scale
 	__prep()
@@ -498,13 +522,31 @@ end
 
 
 function love.draw()
+	love.graphics.setLineWidth(0.1)
+	local i_x, i_y = entity_getScreenCoordinates(mouse_x+mouse_chunk*16,mouse_y)
+	i_x = i_x --+ render_x
+	i_y = i_y -8--+ render_y - 8
 	love.graphics.draw(skygrad)
 	render_y = __origin-(entity[0].ypos)*__scale-300
 	render_x = (entity[0].xpos)*__scale-400
 	love.graphics.draw(bgbatch,-render_x,-render_y)
+	if love.keyboard.isDown('lshift') then
+	i_y = i_y -8--+ render_y - 8
+	love.graphics.setColor(20,20,20)
+	love.graphics.rectangle("line",i_x,i_y+12,32,32)
+	if bgblock[tostring(mouse_chunk)][mouse_x][mouse_y] == 0 or bgblock[tostring(mouse_chunk)][mouse_x][mouse_y+1] == 0 then love.graphics.rectangle("line",i_x,i_y+4,32,8) end
+	love.graphics.setColor(255,255,255)
+	end
+	for id,obj in pairs(entity) do
+		if obj.bg then obj:render() end 
+	end
 	love.graphics.draw(disbatch,-render_x,-render_y)
 	for id,obj in pairs(entity) do
-		obj:render()
+		if not obj.bg then obj:render() end
+	end
+	love.graphics.draw(ffacebatch,-render_x,-render_y)
+	for id,obj in pairs(entity) do
+		entity_castShadow(obj,obj.xpos,obj.ypos + 1,obj.bg)
 	end
 	love.graphics.print(collectgarbage("count")*1024,0,32)
 	local draw = nil
@@ -533,6 +575,12 @@ function love.draw()
 		end
 
 	end
+	if not love.keyboard.isDown('lshift') then
+	love.graphics.setColor(0,0,0)
+	love.graphics.rectangle("line",i_x,i_y+12,32,32)
+	if block[tostring(mouse_chunk)][mouse_x][mouse_y] == 0 or block[tostring(mouse_chunk)][mouse_x][mouse_y+1] == 0 then love.graphics.rectangle("line",i_x,i_y+4,32,8) end
+	love.graphics.setColor(255,255,255)
+	end
 	graphics_cursor()
 	if next_time <= cur_time then
 		next_time = cur_time
@@ -551,8 +599,10 @@ function love.mousepressed( x, y, button, istouch )
 		if mouse_y < 63 then
 			if button == 1 and not love.keyboard.isDown('lshift') then block[tostring(mouse_chunk)][mouse_x][mouse_y] = 0 end
 			if button == 1 and love.keyboard.isDown('lshift') then bgblock[tostring(mouse_chunk)][mouse_x][mouse_y] = 0 end
-			if button == 2 and love.keyboard.isDown('lshift') then bgblock[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock end
-		if not is_intersecting_player() then
+		if not is_intersecting_player() and entity[0].bg then	
+		if button == 2 and love.keyboard.isDown('lshift') then bgblock[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock end
+		end
+		if not is_intersecting_player() and not entity[0].bg then
 			if button == 2 and not love.keyboard.isDown('lshift') then block[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock end
 		end
 		end
