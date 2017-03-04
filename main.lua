@@ -34,9 +34,10 @@ local target_chunk = tostring(math.floor(x/16))
 local rel_x = (math.floor(x)%16)
 local rel_y = math.floor(y)
 if rel_y < 63 or rel_y > 1 then 
-if isbg then
-bgblock[target_chunk][rel_x][rel_y] = value else
-block[target_chunk][rel_x][rel_y] = value 
+if isbg == 0 or nil then block[target_chunk][rel_x][rel_y] = value elseif isbg == 1 then
+bgblock[target_chunk][rel_x][rel_y] = value elseif isbg == 2 then
+bgblock2[target_chunk][rel_x][rel_y] = value elseif isbg == 3 then
+fgblock[target_chunk][rel_x][rel_y] = value
 end
 end
 
@@ -70,7 +71,7 @@ f_chunk = math.floor(f_x/16)
 
 end
 
-return f_x*__scale+(f_chunk*16*__scale)-render_x ,__origin-(f_y-1)*__scale-render_y
+return math.floor(f_x*__scale+(f_chunk*16*__scale)-render_x) ,math.floor(__origin-(f_y-1)*__scale-render_y)
 
 end
 
@@ -179,9 +180,8 @@ end
 if this.hspeed < 0 then
 if block_isSolid(this.xpos + this.hspeed - this.xhit,this.ypos+0.5,this.bg) or block_isSolid(this.xpos + this.hspeed - this.xhit,this.ypos+1.5,this.bg) then this.hspeed = 0 xcol = 1 end
 end
-
 this.xpos = this.xpos + this.hspeed
-this.ypos = this.ypos + this.vspeed 
+this.ypos = this.ypos + this.vspeed
 if this.hspeed > 0 and this.hspeed < 0.001 then this.hspeed = 0 end
 if this.hspeed < 0 and this.hspeed > -0.001 then this.hspeed = 0 end
 
@@ -206,13 +206,19 @@ btop = {}
 btop[3] = 0
 btop[8] = 9
 
+
+
 function graphics_update()
+	render_x = math.floor(render_x)
+	render_y = math.floor(render_y)
 	local localplayer = entity[0]
 	local renderblock = 0
 	local block = block
 	bgbatch:clear()
 	disbatch:clear()
 	ffacebatch:clear()
+	bg2batch:clear()
+	fgbatch:clear()
 	for chunk = math.max(math.floor(localplayer.xpos/16)-2,-chunkcount),math.min(math.floor(localplayer.xpos/16)+2,chunkcount),1 do 
 		for x = 0,15,1 do
 			for y=0,63,1 do
@@ -224,7 +230,7 @@ function graphics_update()
 					i_x = i_x + render_x
 					i_y = i_y + render_y - 8
 					if bgblock[tostring(chunk)][x][y+1] == 0 then
-					if block[tostring(chunk)][x][y] ~= 0 then bgbatch:setColor(255,255,255) else bgbatch:setColor(200,200,200) end
+					bgbatch:setColor(255,255,255)
 					bgbatch:add(texture[btop[bgblock[tostring(chunk)][x][y]] or bgblock[tostring(chunk)][x][y]],i_x,i_y-__scale/4+4,0,__scale/16,__scale/16/4)
 					end
 					bgbatch:setColor(178,178,178)
@@ -242,10 +248,35 @@ function graphics_update()
 					ffacebatch:setColor(210,210,210)
 					ffacebatch:add(texture[(block[tostring(chunk)][x][y])],i_x,i_y+4,0,__scale/16,__scale/16)
 				end
+					----
+				if bgblock2[tostring(chunk)][x][y]> 0 and chunk > localplayer.xpos/16-2 and chunk < localplayer.xpos/16+1 then 
+					local i_x, i_y = block_getScreenCoordinates(chunk or -1,x or 0,y or -1)
+					i_x = i_x + render_x
+					i_y = i_y + render_y - 16
+					if bgblock2[tostring(chunk)][x][y+1] == 0 then
+					bg2batch:setColor(255,255,255)
+					bg2batch:add(texture[btop[bgblock2[tostring(chunk)][x][y]] or bgblock2[tostring(chunk)][x][y]],i_x,i_y-__scale/4+4,0,__scale/16,__scale/16/4)
+					end
+					bg2batch:setColor(140,140,140)
+					bg2batch:add(texture[(bgblock2[tostring(chunk)][x][y])],i_x,i_y+4,0,__scale/16,__scale/16)
+				end
+					----
+				if fgblock[tostring(chunk)][x][y]> 0 and chunk > localplayer.xpos/16-2 and chunk < localplayer.xpos/16+1 then 
+					local i_x, i_y = block_getScreenCoordinates(chunk or -1,x or 0,y or -1)
+					i_x = i_x + render_x
+					i_y = i_y + render_y + 8
+					if fgblock[tostring(chunk)][x][y+1] == 0 then
+					fgbatch:setColor(255,255,255,a)
+					fgbatch:add(texture[btop[fgblock[tostring(chunk)][x][y]] or fgblock[tostring(chunk)][x][y]],i_x,i_y-__scale/4+4,0,__scale/16,__scale/16/4)
+					end
+					fgbatch:setColor(210,210,210,a)
+					fgbatch:add(texture[(fgblock[tostring(chunk)][x][y])],i_x,i_y+4,0,__scale/16,__scale/16)
+				end
 				end
 			end 
 		end
 	end	
+print(renderblock)
 end
 function graphics_cursor()
 	love.graphics.rectangle("fill",love.mouse.getX()-8,love.mouse.getY(),16,2)
@@ -381,14 +412,16 @@ __prep()
 pseudoseed = os.time()%999999
 
 --pseudoseed = 0
---We're gonna have 16x64 chunks for now. Let's get generating. Raising.
-
+--We're gonna have 16x64 chunks for now. Let's get generating. 
+	--Raising.
 	for x = -chunkcount*16,chunkcount*16-1,1 do
 		n = love.math.noise(pseudoseed,x/30)*10
 		m = love.math.noise(pseudoseed,x/70)*10
 		q = love.math.noise(pseudoseed,x/3)*2
-		block_setBlockId(x,math.abs(n+q)+32+m,3)
+		block_setBlockId(x,math.abs(n+q)+32+m,3,0)
 		block_setBlockId(x,math.abs(n+q)+32+m,3,1)
+		block_setBlockId(x,math.abs(n+q)+32+m,3,2)
+		block_setBlockId(x,math.abs(n+q)+32+m,3,3)
 		--print(n+26)
 	end
 	--Soiling.
@@ -400,10 +433,14 @@ pseudoseed = os.time()%999999
 					for n = y-1,y-m,-1 do
 						block[tostring(chunk)][x][n] = 2
 						bgblock[tostring(chunk)][x][n] = 2
+						bgblock2[tostring(chunk)][x][n] = 2
+						fgblock[tostring(chunk)][x][n] = 2
 					end
 					for n = y-m,0,-1 do
 						block[tostring(chunk)][x][n] = 1
 						bgblock[tostring(chunk)][x][n] = 1
+						bgblock2[tostring(chunk)][x][n] = 1
+						fgblock[tostring(chunk)][x][n] = 1
 					end 
 				end
 			end 
@@ -416,7 +453,7 @@ pseudoseed = os.time()%999999
 				cave = love.math.noise(((y+0.9)/120)*12,((x+chunk*16)/120)*12,pseudoseed)
 				--print(cave)
 				--print (chunk,x,y,block[tostring(chunk)][x][y],bgblock[tostring(chunk)][x][y])
-				if cave > 0.6 and block[tostring(chunk)][x][y] ~= 0 then bgblock[tostring(chunk)][x][y] = block[tostring(chunk)][x][y] block[tostring(chunk)][x][y] = 0 end 
+				if cave > 0.6 and block[tostring(chunk)][x][y] ~= 0 then bgblock[tostring(chunk)][x][y] = block[tostring(chunk)][x][y] fgblock[tostring(chunk)][x][y] = 0 block[tostring(chunk)][x][y] = 0 end 
 				end 
 		end
 	end
@@ -428,27 +465,30 @@ end
 function __prep()
 	block = {}
 	bgblock = {}
+	bgblock2 = {}
+	fgblock = {}
 	chunkcount = 16
 	for chunk = -chunkcount,chunkcount,1 do 
-		block[tostring(chunk)] = {}
-		for x = 0,15,1 do
-			block[tostring(chunk)][x] = {}
-			for y = 0,63,1 do
-				block[tostring(chunk)][x][y] = 0
-			end 
-		end
 		bgblock[tostring(chunk)] = {}
+		bgblock2[tostring(chunk)] = {}
+		block[tostring(chunk)] = {}
+		fgblock[tostring(chunk)] = {}
 		for x = 0,15,1 do
 			bgblock[tostring(chunk)][x] = {}
+			bgblock2[tostring(chunk)][x] = {}
+			block[tostring(chunk)][x] = {}
+			fgblock[tostring(chunk)][x] = {}
 			for y = 0,63,1 do
 				bgblock[tostring(chunk)][x][y] = 0
+				bgblock2[tostring(chunk)][x][y] = 0
+				block[tostring(chunk)][x][y] = 0
+				fgblock[tostring(chunk)][x][y] = 0
 			end 
 		end
 	end
 
 
 end
-
 
 
 --LOVE FUNCTIONS---------------------------------------------------------------------------------------------------------------
@@ -497,6 +537,8 @@ function love.load()
 	disbatch = love.graphics.newSpriteBatch(terrain,1500,'dynamic')
 	bgbatch = love.graphics.newSpriteBatch(terrain,1500,'dynamic')
 	ffacebatch = love.graphics.newSpriteBatch(terrain,1500,'dynamic')
+	bg2batch = love.graphics.newSpriteBatch(terrain,1500,'dynamic')
+	fgbatch = love.graphics.newSpriteBatch(terrain,1500,'dynamic')
 	__scale = 32
 	__origin = 63 * __scale
 	__prep()
@@ -513,6 +555,7 @@ function love.load()
 	master=socket.tcp()
 	print(master:bind("*",25564))
 	skygrad = love.graphics.newImage("sky.png")
+	__generate()
 end
 
 
@@ -522,6 +565,8 @@ end
 
 
 function love.draw()
+	render_x = math.floor(render_x)
+	render_y = math.floor(render_y)
 	love.graphics.setLineWidth(0.1)
 	local i_x, i_y = entity_getScreenCoordinates(mouse_x+mouse_chunk*16,mouse_y)
 	i_x = i_x --+ render_x
@@ -529,6 +574,7 @@ function love.draw()
 	love.graphics.draw(skygrad)
 	render_y = __origin-(entity[0].ypos)*__scale-300
 	render_x = (entity[0].xpos)*__scale-400
+	love.graphics.draw(bg2batch,-render_x,-render_y)
 	love.graphics.draw(bgbatch,-render_x,-render_y)
 	if love.keyboard.isDown('lshift') then
 	i_y = i_y -8--+ render_y - 8
@@ -540,11 +586,14 @@ function love.draw()
 	for id,obj in pairs(entity) do
 		if obj.bg then obj:render() end 
 	end
+	if block[tostring(math.floor(entity[0].xpos/16))][math.floor(entity[0].xpos)%16][math.floor(entity[0].ypos+1)] ~= 0 and block[tostring(math.floor(entity[0].xpos/16))][math.floor(entity[0].xpos)%16][math.floor(entity[0].ypos + 2)] ~= 0 then love.graphics.setColor(255,255,255,90) end
 	love.graphics.draw(disbatch,-render_x,-render_y)
 	for id,obj in pairs(entity) do
 		if not obj.bg then obj:render() end
 	end
 	love.graphics.draw(ffacebatch,-render_x,-render_y)
+	if fgblock[tostring(math.floor(entity[0].xpos/16))][math.floor(entity[0].xpos)%16][math.floor(entity[0].ypos+1)] ~= 0 and fgblock[tostring(math.floor(entity[0].xpos/16))][math.floor(entity[0].xpos)%16][math.floor(entity[0].ypos + 2)] ~= 0 then love.graphics.setColor(255,255,255,90) end
+	love.graphics.draw(fgbatch,-render_x,-render_y)
 	for id,obj in pairs(entity) do
 		entity_castShadow(obj,obj.xpos,obj.ypos + 1,obj.bg)
 	end
@@ -599,12 +648,8 @@ function love.mousepressed( x, y, button, istouch )
 		if mouse_y < 63 then
 			if button == 1 and not love.keyboard.isDown('lshift') then block[tostring(mouse_chunk)][mouse_x][mouse_y] = 0 end
 			if button == 1 and love.keyboard.isDown('lshift') then bgblock[tostring(mouse_chunk)][mouse_x][mouse_y] = 0 end
-		if not is_intersecting_player() and entity[0].bg then	
-		if button == 2 and love.keyboard.isDown('lshift') then bgblock[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock end
-		end
-		if not is_intersecting_player() and not entity[0].bg then
+			if button == 2 and love.keyboard.isDown('lshift') then bgblock[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock end
 			if button == 2 and not love.keyboard.isDown('lshift') then block[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock end
-		end
 		end
 		graphics_update()
 		oldxpos = entity[0].xpos
@@ -640,6 +685,8 @@ end
 function love.update(dt)
 gdt = dt
 next_time = next_time + min_dt
+	render_x = math.floor(render_x)
+	render_y = math.floor(render_y)
 	if not pause or multiplayer then
 		--dt = math.min(dt, 1/60)
 		for id,obj in pairs(entity) do
