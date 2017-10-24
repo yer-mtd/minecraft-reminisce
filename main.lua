@@ -326,9 +326,9 @@ oldypos = 0
 player = {vshift = 0, n = 0, facing = 0, xhit = 0.3 , yhit = 2, cdt = 0, ypos = 64, xpos = 0, vspeed = 0, hspeed = 0, health = 20, ground = 1}
 function player.tick(this)
 
-if love.keyboard.isDown('lshift') and not (block_isSolid(math.floor(this.xpos),this.ypos+1.5,1) or block_isSolid(math.floor(this.xpos),this.ypos+0.5,1)) then
+if love.keyboard.isDown(keyBackgroundMode) and not (block_isSolid(math.floor(this.xpos),this.ypos+1.5,1) or block_isSolid(math.floor(this.xpos),this.ypos+0.5,1)) then
 this.bg = true end
-if not love.keyboard.isDown('lshift') and not (block_isSolid(math.floor(this.xpos),this.ypos+1.5) or block_isSolid(math.floor(this.xpos),this.ypos+0.5)) then
+if not love.keyboard.isDown(keyBackgroundMode) and not (block_isSolid(math.floor(this.xpos),this.ypos+1.5) or block_isSolid(math.floor(this.xpos),this.ypos+0.5)) then
 this.bg = false end
 entityphysics(this)
 
@@ -500,7 +500,14 @@ end
 
 function love.load()
 	http = require("socket.http")
-	local b, c, h = http.request("http://mcapi.ca/rawskin/MetoolDaddy")
+  --check if settings file exists and if not create one from the pastebin U9wyV2jL
+  if not love.filesystem.exists("settings.lua") then 
+    b, c, h = http.request("http://pastebin.com/raw/U9wyV2jL")
+    love.filesystem.write("settings.lua", b)
+    print "No settings file located. Downloading new one."
+  end
+  settings = require("settings")
+	local b, c, h = http.request("http://mcapi.ca/rawskin/" .. playerSkin)
 	love.filesystem.write("skin.png", b)
 	font = love.graphics.newFont("minecraft.ttf",16)
 	love.graphics.setFont(font)
@@ -529,8 +536,8 @@ function love.load()
 	playermodel.backleg = love.graphics.newQuad(16,52,4,12,64,64)
 	
 	for i=0,240,16 do
-		for ii=0,240,16 do
-			texture[qq] = love.graphics.newQuad(ii,i,16,16,256,256)
+		for j=0,240,16 do
+			texture[qq] = love.graphics.newQuad(j,i,16,16,256,256)
 			qq = qq + 1
 		end
 	end
@@ -576,7 +583,7 @@ function love.draw()
 	render_x = (entity[0].xpos)*__scale-400
 	love.graphics.draw(bg2batch,-render_x,-render_y)
 	love.graphics.draw(bgbatch,-render_x,-render_y)
-	if love.keyboard.isDown('lshift') then
+	if love.keyboard.isDown(keyBackgroundMode) then
 	i_y = i_y -8--+ render_y - 8
 	love.graphics.setColor(20,20,20)
 	love.graphics.rectangle("line",i_x,i_y+12,32,32)
@@ -624,7 +631,7 @@ function love.draw()
 		end
 
 	end
-	if not love.keyboard.isDown('lshift') then
+	if not love.keyboard.isDown(keyBackgroundMode) then
 	love.graphics.setColor(0,0,0)
 	love.graphics.rectangle("line",i_x,i_y+12,32,32)
 	if block[tostring(mouse_chunk)][mouse_x][mouse_y] == 0 or block[tostring(mouse_chunk)][mouse_x][mouse_y+1] == 0 then love.graphics.rectangle("line",i_x,i_y+4,32,8) end
@@ -646,10 +653,10 @@ end
 function love.mousepressed( x, y, button, istouch )
 	if not pause then 
 		if mouse_y < 63 then
-			if button == 1 and not love.keyboard.isDown('lshift') then block[tostring(mouse_chunk)][mouse_x][mouse_y] = 0 end
-			if button == 1 and love.keyboard.isDown('lshift') then bgblock[tostring(mouse_chunk)][mouse_x][mouse_y] = 0 end
-			if button == 2 and love.keyboard.isDown('lshift') then bgblock[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock end
-			if button == 2 and not love.keyboard.isDown('lshift') then block[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock end
+			if button == 1 and not love.keyboard.isDown(keyBackgroundMode) then block[tostring(mouse_chunk)][mouse_x][mouse_y] = 0 end
+			if button == 1 and love.keyboard.isDown(keyBackgroundMode) then bgblock[tostring(mouse_chunk)][mouse_x][mouse_y] = 0 end
+			if button == 2 and love.keyboard.isDown(keyBackgroundMode) then bgblock[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock end
+			if button == 2 and not love.keyboard.isDown(keyBackgroundMode) then block[tostring(mouse_chunk)][mouse_x][mouse_y] = selectedblock end
 		end
 		graphics_update()
 		oldxpos = entity[0].xpos
@@ -668,11 +675,11 @@ end
 
 
 function love.keypressed(key)
-	if key == 'q' then explosion(entity[0].xpos,entity[0].ypos,5) end
-	if key == 'c' then debug.debug() end
-	if key == 'r' then __generate() entity[0].ypos = 63 entity[0].ground = 0 end
-	if key == 'w' and entity[0].ground == 1 then entity[0].ypos = entity[0].ypos + 0.1 entity[0].ground = 0 entity[0].vspeed = 0.12 entity[0].cdt = gdt end
-	if key == 'g' then
+	if key == keyExplosion then explosion(entity[0].xpos,entity[0].ypos,5) end
+	if key == keyCrash then debug.debug() end
+	if key == keyRegenerate then __generate() entity[0].ypos = 63 entity[0].ground = 0 end
+	if key == keyJump and entity[0].ground == 1 then entity[0].ypos = entity[0].ypos + 0.1 entity[0].ground = 0 entity[0].vspeed = 0.12 entity[0].cdt = gdt end
+	if key == keySpawnMonster then
 		entity_spawn(monster,entity[0].xpos,63)
 		print(entity[0].xpos)
 	end
